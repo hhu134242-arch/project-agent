@@ -89,9 +89,22 @@ export async function execute(ctx: AdapterExecutionContext, dependencies: AiSdkD
       if (!executeTool) return [name, definition];
       return [name, { ...definition, execute: async (input: unknown, options: Parameters<typeof executeTool>[1]) => {
         signal.throwIfAborted();
-        const running = Promise.resolve(executeTool(input, { ...options, abortSignal: signal }));
+        // Capture synchronous throws as well as rejected promises before the SDK
+        // turns tool errors into messages for the next provider request.
+        const running = Promise.resolve().then(() => {
+          signal.throwIfAborted();
+          return executeTool(input, { ...options, abortSignal: signal });
+        });
         pendingTools.add(running);
-        try { return redactValue(await running, secrets); }
+        try {
+          const result = await running;
+          signal.throwIfAborted();
+          return redactValue(result, secrets);
+        } catch {
+          signal.throwIfAborted();
+          // Do not attach the original cause/data: MCP errors can echo credentials.
+          throw new Error("Tool operation failed. Check the task permission or connection.");
+        }
         finally { pendingTools.delete(running); }
       } }];
     }));

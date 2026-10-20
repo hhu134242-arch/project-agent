@@ -570,14 +570,15 @@ describe("OnboardingWizard — which step it lands on", () => {
 
     /**
      * Pick a model source. The connect step arrives with nothing chosen, so its
-     * CTA stays disabled until a tile is pressed — found by `aria-checked`
-     * rather than by label, because this suite mocks the display registry and
-     * the tiles carry whatever it happens to return.
+     * CTA stays disabled until a tile is pressed. Select the Claude path whose
+     * login/probe is configured by this fixture; API model accounts have their
+     * own setup and must not be selected merely because their tile comes first.
      */
     async function pickModelSource() {
       const tiles = [...document.body.querySelectorAll("button[aria-checked]")];
-      expect(tiles.length, "the connect step should offer a source").toBeGreaterThan(0);
-      await press(tiles[0]!);
+      const claude = tiles.find((tile) => tile.textContent?.includes("Claude"));
+      expect(claude, "the connect step should offer the configured Claude source").toBeDefined();
+      await press(claude!);
     }
 
     it("hires under the neutral role, with the name the customer typed", async () => {

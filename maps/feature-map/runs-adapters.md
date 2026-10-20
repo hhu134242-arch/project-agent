@@ -61,6 +61,11 @@ billable model request; saving a connection alone does not establish access.
 Verify a task with the current-task API tools and assigned MCP tools, follow-up
 context, Stop during a stream/tool request, and provider errors. The adapter has
 no shell or arbitrary project-file tools. Unknown provider cost remains unpriced.
+Also verify a manual/scheduled wake without a task can discover its inbox through
+the restricted API tool, and that an MCP error echoing a credential never reaches
+the next model request. Controlled regressions cover
+[taskless inbox discovery](../../server/src/__tests__/ai-sdk-inbox.test.ts) and
+[tool error/cancellation boundaries](../../server/src/__tests__/ai-sdk-adapter.test.ts).
 Its controlled HTTP fixtures exercise the real SDK; they do not prove access to
 a platform's live service. Live qualification requires an operator-supplied key.
 The [managed heartbeat integration](../../server/src/__tests__/heartbeat-ai-sdk.test.ts)

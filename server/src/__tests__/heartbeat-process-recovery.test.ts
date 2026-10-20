@@ -1680,8 +1680,11 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
   it.each(["missing_default", "credential_not_shared", "database_error", "unmarked_http_error", "unmarked_forbidden", "provider_error"] as const)(
     "preserves AI configuration recovery and reports only unexpected causes: %s", async (cause) => {
       const { companyId, agentId, issueId, runId, wakeupRequestId } = await seedQueuedIssueRunFixture();
+      // This case reaches real managed-auth checks; keep ancestor discovery in the isolated test home.
+      const cwd = resolveDefaultAgentWorkspaceDir(agentId);
+      await fs.mkdir(cwd, { recursive: true });
       await db.insert(companyMemberships).values({ companyId, principalType: "user", principalId: "responsible-user", status: "active", membershipRole: "member" }).onConflictDoNothing();
-      await db.update(agents).set({ runtimeConfig: {
+      await db.update(agents).set({ adapterConfig: { cwd }, runtimeConfig: {
         heartbeat: { wakeOnDemand: true, maxConcurrentRuns: 1 },
         aiConnection: { provider: "openai", method: "api_key", mode: "responsible_user" },
       } }).where(eq(agents.id, agentId));

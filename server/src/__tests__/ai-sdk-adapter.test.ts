@@ -4,6 +4,9 @@ import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { loadInstructions } from "../../../packages/adapters/ai-sdk/src/server/instructions.js";
+import * as instructionLoader from "../../../packages/adapters/ai-sdk/src/server/instructions.js";
+import { tool } from "ai";
+import { z } from "zod";
 import { StreamRedactor } from "../../../packages/adapters/ai-sdk/src/server/stream-redactor.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
@@ -24,6 +27,7 @@ let apiCalls: Array<{ method: string; path: string; body: unknown; auth: string 
 let mcpCalls: string[];
 let temporaryDirectories: string[];
 let modelTurn: (body: Record<string, unknown>, response: ServerResponse) => void;
+let mcpToolCall: (body: Record<string, unknown>, response: ServerResponse) => void;
 const realFetch = globalThis.fetch;
 const responseProtocols = new WeakMap<ServerResponse, "chat" | "responses" | "messages">();
 
@@ -105,6 +109,9 @@ const fixtureDependencies = (): AiSdkDependencies => ({ customEndpointFetch: (in
 beforeEach(async () => {
   providerBodies = []; providerRequests = []; apiCalls = []; mcpCalls = []; temporaryDirectories = [];
   modelTurn = (_body, response) => stream(response, "Task completed.");
+  mcpToolCall = (body, response) => response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({
+    jsonrpc: "2.0", id: body.id, result: { content: [{ type: "text", text: "The fixture fact is 42." }] },
+  }));
   server = createServer(async (request, response) => {
     if (["/chat/completions", "/v1/chat/completions", "/api/v1/chat/completions", "/v1/responses", "/v1/messages"].includes(request.url ?? "")) {
       const body = await requestBody(request); providerBodies.push(body);
@@ -129,7 +136,7 @@ beforeEach(async () => {
       if (body.method === "server/discover") { response.writeHead(404).end(); return; }
       if (body.method === "initialize") result = { protocolVersion: "2025-03-26", capabilities: { tools: {} }, serverInfo: { name: "fixture", version: "1" } };
       else if (body.method === "tools/list") result = { tools: [{ name: "lookup", description: "Look up fixture fact", inputSchema: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"] } }] };
-      else if (body.method === "tools/call") result = { content: [{ type: "text", text: "The fixture fact is 42." }] };
+      else if (body.method === "tools/call") { mcpToolCall(body, response); return; }
       else result = {};
       response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result })); return;
     }
@@ -305,6 +312,57 @@ describe("AI SDK API platform adapter", () => {
     expect(JSON.stringify(providerBodies[1])).toContain("The fixture fact is 42.");
     expect(JSON.stringify(providerBodies)).not.toContain(MCP_TOKEN);
     expect(JSON.stringify(result)).not.toContain(MCP_TOKEN);
+  });
+
+  it.each(["mcp rejection", "synchronous tool throw"])("does not send credentials from a %s to the next model request", async (failure) => {
+    const message = `Authorization: Bearer ${MCP_TOKEN}; provider=${KEY}; agent=${TOKEN}`;
+    const ctx = context({ runtimeMcp: { getServers: () => [{ name: "fixture", connectionId: "connection-1", url: `${origin}/mcp`, token: MCP_TOKEN }] } });
+    let toolName = "mcp_0_lookup";
+    let toolInput: Record<string, unknown> = { topic: "answer" };
+    if (failure === "mcp rejection") {
+      mcpToolCall = (body, response) => response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({
+        jsonrpc: "2.0", id: body.id, error: { code: -32603, message, data: { credential: MCP_TOKEN } },
+      }));
+    } else {
+      toolName = "sync_fixture"; toolInput = {};
+      vi.spyOn(instructionLoader, "loadInstructions").mockResolvedValue({ prompt: "", tools: {
+        sync_fixture: tool({ description: "Synchronous failure fixture", inputSchema: z.object({}), execute: () => { throw new Error(message, { cause: { credential: MCP_TOKEN } }); } }),
+      } });
+    }
+    modelTurn = (_body, response) => providerBodies.length === 1
+      ? stream(response, { toolName, input: toolInput }) : stream(response, "The tool failed; no action was completed.");
+    const result = await execute(ctx);
+    expect(result.exitCode).toBe(0);
+    expect(providerBodies).toHaveLength(2);
+    expect(JSON.stringify(providerBodies[1])).toContain("Tool operation failed. Check the task permission or connection.");
+    for (const secret of [MCP_TOKEN, KEY, TOKEN]) {
+      expect(JSON.stringify(providerBodies)).not.toContain(secret);
+      expect(JSON.stringify(result)).not.toContain(secret);
+      expect(JSON.stringify(vi.mocked(ctx.onLog).mock.calls)).not.toContain(secret);
+    }
+    if (failure === "mcp rejection") expect(mcpCalls.filter(method => method === "tools/call")).toHaveLength(1);
+  });
+
+  it("settles a cancelled MCP request without continuing the model loop", async () => {
+    const started = Promise.withResolvers<void>();
+    let closed = false;
+    mcpToolCall = (_body, response) => {
+      response.on("close", () => { closed = true; });
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.write(": waiting for tool result\n\n");
+      started.resolve();
+    };
+    modelTurn = (_body, response) => stream(response, { toolName: "mcp_0_lookup", input: { topic: "answer" } });
+    const controller = new AbortController();
+    const ctx = context({ signal: controller.signal, runtimeMcp: { getServers: () => [{ name: "fixture", connectionId: "connection-1", url: `${origin}/mcp`, token: MCP_TOKEN }] } });
+    const running = execute(ctx);
+    await started.promise;
+    controller.abort(new Error("Operator stopped the run."));
+    const result = await running;
+    expect(result).toMatchObject({ errorCode: "cancelled", clearSession: true, resultJson: { executionCancellation: { state: "acknowledged" } } });
+    expect(providerBodies).toHaveLength(1);
+    expect(mcpCalls.filter(method => method === "tools/call")).toHaveLength(1);
+    await vi.waitFor(() => expect(closed).toBe(true));
   });
 
   it("resumes bounded messages only for the same connection, model, task and workspace", async () => {

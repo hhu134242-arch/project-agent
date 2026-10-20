@@ -13,7 +13,12 @@ Execution currently runs on the local Paperclip server with standard trust. Remo
 Tasks can use current-task tools and an API request tool restricted to this
 instance's company/resource routes, plus server-assigned instruction/skill
 resources, and authorized run-scoped MCP connections. The adapter provides no
-shell or arbitrary project-file tools. Tool requests retain the existing company,
+shell or arbitrary project-file tools. Authenticated manual/scheduled wakes without
+a task can use the restricted API tool to discover their inbox; the four fixed
+current-task tools are only available once a task is present. Tool failures are
+replaced with a safe message before the next model request, including synchronous
+throws and MCP error responses; cancellation retains its stop semantics.
+Tool requests retain the existing company,
 responsible-user, grant and task authorization. Stop and timeout cancel model and
 tool requests and wait for owned work to settle. Model, credential identity,
 company, agent, task or workspace changes invalidate the previous conversation.

@@ -6,7 +6,7 @@ import { access, chmod, mkdir, readdir, readFile, mkdtemp, rm } from "node:fs/pr
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { agents, companies, companyMemberships, companySkills, createDb, heartbeatRunEvents, heartbeatRuns, issues, projects } from "@paperclipai/db";
 import { companySkillService } from "../services/company-skills.js";
 import { withSkillVersionCacheLock } from "../services/skill-version-cache.js";
@@ -91,6 +91,9 @@ describePostgres("heartbeat execution configuration through adapter dispatch", (
       testEnvironment: async () => ({ adapterType, status: "pass", checks: [], testedAt: new Date().toISOString() }),
     });
   }, 30_000);
+  // Default workspace discovery must not inherit the developer's ancestor CLI auth.
+  // Explicit cwd fixtures still exercise their selected workspace as configured.
+  beforeEach(() => { vi.spyOn(process, "cwd").mockReturnValue(home); });
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); skillFailures.clear(); });
   afterAll(async () => {
     await heartbeat?.drainActiveRunExecutions();

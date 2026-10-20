@@ -236,6 +236,9 @@ describe.skipIf(!support.supported)("heartbeat workspace preparation boundary", 
       input.task.context.projectWorkspaceId = issue.projectWorkspaceId;
     }
     const remoteUrl = "https://example.test/public/repository.git";
+    // The fake upstream is deliberately unavailable. Fail real Git fetches locally,
+    // preserving the origin identity and all clone/worktree/source-isolation checks.
+    await execFile("git", ["-C", source, "config", "--local", "protocol.https.allow", "never"]);
     await db.update(projectWorkspaces).set({ repoUrl: remoteUrl }).where(eq(projectWorkspaces.id, issue.projectWorkspaceId!));
     const publishedSource = join(home, `published-${issue.id}`);
     await execFile("git", ["clone", "--no-hardlinks", source, publishedSource]);
@@ -257,6 +260,8 @@ describe.skipIf(!support.supported)("heartbeat workspace preparation boundary", 
       expect(options.resolveGitAuth).toBeTypeOf("function");
       await execFile("git", ["clone", "--no-hardlinks", publishedSource, cwd]);
       await execFile("git", ["-C", cwd, "remote", "set-url", "origin", remoteUrl]);
+      await execFile("git", ["-C", cwd, "config", "--local", "protocol.https.allow", "never"]);
+      expect((await execFile("git", ["-C", cwd, "remote", "get-url", "origin"])).stdout.trim()).toBe(remoteUrl);
       return { cwd, warning: null };
     });
     const isolatedSource = isolatedRemoteSourcePath(issue.companyId, issue.id);
@@ -292,6 +297,7 @@ describe.skipIf(!support.supported)("heartbeat workspace preparation boundary", 
       expect(await readFile(join(privateCwd, "confidential.txt"), "utf8")).toBe("Private source must not be copied");
       if (scenario === "shared-retry-after-failed-save") {
         await execFile("git", ["-C", source, "remote", "add", "origin", remoteUrl]);
+        expect((await execFile("git", ["-C", source, "remote", "get-url", "origin"])).stdout.trim()).toBe(remoteUrl);
         await db.update(issues).set({ visibility: "open" }).where(eq(issues.id, privateIssue.id));
         const saved = await prepareHeartbeatWorkspace(db, input);
         const workspace = saved.persistedExecutionWorkspace!;

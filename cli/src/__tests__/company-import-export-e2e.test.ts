@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, constants, existsSync, fchmodSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -13,7 +13,8 @@ import {
 import { createStoredZipArchive } from "./helpers/zip.js";
 
 const execFileAsync = promisify(execFile);
-type ServerProcess = ReturnType<typeof spawn>;
+type ServerChild = ReturnType<typeof spawn>;
+type ServerProcess = { child: ServerChild; closed: Promise<void>; isClosed: () => boolean };
 
 async function getAvailablePort(): Promise<number> {
   return await new Promise((resolve, reject) => {
@@ -187,17 +188,78 @@ function collectTextFiles(root: string, current: string, files: Record<string, s
   }
 }
 
-async function stopServerProcess(child: ServerProcess | null) {
-  if (!child || child.exitCode !== null) return;
-  child.kill("SIGTERM");
-  await new Promise<void>((resolve) => {
-    child.once("exit", () => resolve());
-    setTimeout(() => {
-      if (child.exitCode === null) {
-        child.kill("SIGKILL");
-      }
-    }, 5_000);
+async function stopServerProcess(server: ServerProcess | null) {
+  if (!server) return;
+  const pid = server.child.pid;
+  if (!pid) { await server.closed; return; }
+  const groupAlive = () => {
+    if (process.platform === "win32") return !server.isClosed();
+    try { process.kill(-pid, 0); return true; }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+      throw error;
+    }
+  };
+  const signal = async (force: boolean) => {
+    if (!groupAlive()) return;
+    if (process.platform === "win32") {
+      await execFileAsync("taskkill", ["/PID", String(pid), "/T", ...(force ? ["/F"] : [])])
+        // Windows console processes may require /F; a refused soft stop must
+        // still reach the bounded force-stop fallback below.
+        .catch((error) => { if (force && !server.isClosed()) throw error; });
+    } else {
+      try { process.kill(-pid, force ? "SIGKILL" : "SIGTERM"); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; }
+    }
+  };
+  const waitForOwnedExit = async () => {
+    const deadline = Date.now() + 5_000;
+    while (groupAlive() || !server.isClosed()) {
+      if (Date.now() >= deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    return true;
+  };
+  // pnpm and tsx are wrappers. Their exit does not prove the server stopped
+  // writing its home; retain ownership until the group and inherited pipes close.
+  await signal(false);
+  if (!await waitForOwnedExit()) {
+    await signal(true);
+    if (!await waitForOwnedExit()) throw new Error("The owned CLI server process tree did not finish shutting down");
+  }
+  await server.closed;
+}
+
+async function portIsListening(port: number): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port });
+    socket.once("connect", () => { socket.destroy(); resolve(true); });
+    socket.once("error", (error: NodeJS.ErrnoException) => {
+      socket.destroy();
+      if (error.code === "ECONNREFUSED") resolve(false);
+      else reject(error);
+    });
+    socket.setTimeout(1_000, () => { socket.destroy(); reject(new Error(`Timed out checking test port ${port}`)); });
   });
+}
+
+function cleanupOwnedDirectory(root: string, identity: { dev: number; ino: number }) {
+  const current = lstatSync(root);
+  if (!current.isDirectory() || current.dev !== identity.dev || current.ino !== identity.ino) {
+    throw new Error("Refusing to clean a replaced CLI test directory");
+  }
+  // Native context bundles are sealed read-only. Reclaim only this stopped
+  // fixture's directories, without following symlinks into other workspaces.
+  const makeDirectoriesWritable = (directory: string) => {
+    const fd = openSync(directory, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+    try { fchmodSync(fd, 0o700); }
+    finally { closeSync(fd); }
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isDirectory()) makeDirectoriesWritable(path.join(directory, entry.name));
+    }
+  };
+  makeDirectoriesWritable(root);
+  rmSync(root, { recursive: true, force: true });
 }
 
 async function api<T>(baseUrl: string, pathname: string, init?: RequestInit): Promise<T> {
@@ -246,7 +308,7 @@ async function runCliJson<T>(
 
 async function waitForServer(
   apiBase: string,
-  child: ServerProcess,
+  child: ServerChild,
   output: { stdout: string[]; stderr: string[] },
 ) {
   const startedAt = Date.now();
@@ -274,6 +336,7 @@ async function waitForServer(
 
 describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
   let tempRoot = "";
+  let tempRootIdentity: { dev: number; ino: number } | null = null;
   let configPath = "";
   let exportDir = "";
   let apiBase = "";
@@ -285,6 +348,7 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
 
   beforeAll(async () => {
     tempRoot = mkdtempSync(path.join(os.tmpdir(), "paperclip-company-cli-e2e-"));
+    tempRootIdentity = lstatSync(tempRoot);
     configPath = path.join(tempRoot, "config", "config.json");
     exportDir = path.join(tempRoot, "exported-company");
     paperclipHome = path.join(tempRoot, "paperclip-home");
@@ -311,10 +375,17 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
           instanceId: paperclipInstanceId,
           shellHome: cliShellHome,
         }),
+        detached: process.platform !== "win32",
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
-    serverProcess = child;
+    let closed = false;
+    serverProcess = {
+      child,
+      closed: new Promise<void>((resolve) => child.once("close", () => { closed = true; resolve(); })),
+      isClosed: () => closed,
+    };
+    child.once("error", (error) => { output.stderr.push(error.message); });
     child.stdout?.on("data", (chunk) => {
       output.stdout.push(String(chunk));
     });
@@ -327,11 +398,16 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
 
   afterAll(async () => {
     await stopServerProcess(serverProcess);
+    if (apiBase) expect(await portIsListening(Number(new URL(apiBase).port))).toBe(false);
     await tempDb?.cleanup();
-    if (tempRoot) {
-      rmSync(tempRoot, { recursive: true, force: true });
+    if (tempDb) expect(await portIsListening(Number(new URL(tempDb.connectionString).port))).toBe(false);
+    if (tempRoot && tempRootIdentity) {
+      cleanupOwnedDirectory(tempRoot, tempRootIdentity);
+      expect(existsSync(tempRoot)).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(existsSync(tempRoot)).toBe(false);
     }
-  });
+  }, 30_000);
 
   it("exports a company package and imports it into new and existing companies", async () => {
     expect(serverProcess).not.toBeNull();

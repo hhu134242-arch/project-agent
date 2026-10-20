@@ -61,6 +61,10 @@ vault. Local standard-trust execution is the only supported environment.
 The adapter's current-task tools and company/resource API request tool use the
 existing Agent JWT and run ID. Company-prefix routes must name this company;
 resource routes still enforce server-side company/privacy/responsible-user checks.
+Authenticated wakes without a task retain the restricted API tool for inbox
+discovery; fixed current-task tools require a task ID. Missing authentication
+withholds all Paperclip business tools. Tool exceptions are sanitized before
+returning to the model, while cancellation still stops and settles owned work.
 The model cannot choose an external URL or request headers. Assigned MCP tools
 use their run-scoped gateway credentials and normal connection policies. This is
 source/control evidence; live upstream verification requires a real platform key.

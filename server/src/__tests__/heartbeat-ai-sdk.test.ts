@@ -42,7 +42,10 @@ describe("AI SDK managed heartbeat integration", () => {
     vi.stubEnv("PAPERCLIP_HOME", home);
     vi.stubEnv("PAPERCLIP_INSTANCE_ID", "sdk-heartbeat-test");
     vi.stubEnv("PAPERCLIP_AGENT_JWT_SECRET", "sdk-heartbeat-test-signing-secret");
-    vi.stubEnv("PAPERCLIP_API_URL", "");
+    // This service fixture does not boot the board HTTP server. Leave the
+    // override absent so managed MCP stays unavailable and API tools can use
+    // the normal derived URL; an explicit empty override is an invalid URL.
+    vi.stubEnv("PAPERCLIP_API_URL", undefined);
     database = await startEmbeddedPostgresTestDatabase("paperclip-ai-sdk-heartbeat-db-");
     db = createDb(database.connectionString);
     heartbeat = heartbeatService(db);

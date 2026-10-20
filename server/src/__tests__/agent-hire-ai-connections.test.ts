@@ -8,7 +8,7 @@ import path from "node:path";
 import express from "express";
 import request from "supertest";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { activityLog, agents, companies, companyMemberships, createDb, closeRegisteredClients, heartbeatRuns, issues, plugins, principalPermissionGrants, toolConnectionInstalls } from "@paperclipai/db";
 import { type AiConnectionBinding, type AiConnectionPoolMember, type PaperclipPluginManifestV1 } from "@paperclipai/shared";
 import { startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
@@ -48,11 +48,16 @@ beforeAll(async () => {
   }
 }, 90_000);
 
+// Default runtime config must not discover the developer's ancestor CLI auth.
+// Tests that supply cwd still exercise their explicitly selected workspace.
+beforeEach(() => { vi.spyOn(process, "cwd").mockReturnValue(home); });
+
 afterAll(async () => {
   await waitForPendingRunFailureReports();
   if (externalTestDatabaseUrl) await closeRegisteredClients(externalTestDatabaseUrl);
   await db?.$client.end();
   await database?.cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   if (home) await rm(home, { recursive: true, force: true });
 });

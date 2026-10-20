@@ -1,5 +1,5 @@
 import { enableRunFailureReporting } from "./helpers/run-failure-reporting.js";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { createIsolatedTestHome } from "./helpers/isolated-test-home.js";
@@ -72,11 +72,14 @@ beforeAll(async () => {
     { id: randomUUID(), binding: { mode: "delegated", provider: "anthropic", method: "subscription", ...claude }, profile: { provider: "acpx", acpxAgent: "claude", model: "claude-sonnet-5" } },
   ];
 }, 90000);
+// Default runtime config must not discover the developer's ancestor CLI auth.
+// Explicit cwd values continue to select their own fixture workspace.
+beforeEach(() => { vi.spyOn(process, "cwd").mockReturnValue(home); });
 afterAll(async () => {
   await waitForPendingRunFailureReports();
   if (externalTestDatabaseUrl) await closeRegisteredClients(externalTestDatabaseUrl);
   await db?.$client.end();
-  await database?.cleanup(); vi.unstubAllEnvs(); isolatedHome?.cleanup();
+  await database?.cleanup(); vi.restoreAllMocks(); vi.unstubAllEnvs(); isolatedHome?.cleanup();
 });
 
 describe("durable, authorized connection routing", () => {
