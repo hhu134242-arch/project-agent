@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "slug": "minimax",
+  "name": "MiniMax",
+  "description": "MiniMax language models via the OpenAI-compatible API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/minimax.svg"
+  },
+  "urlPatterns": [
+    "https://api.minimax.cn/*"
+  ],
+  "docsUrl": "https://platform.minimaxi.com/docs/guides/quickstart-preparation",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "MiniMax API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "minimax",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.minimax.cn/v1",
+          "models": [
+            {
+              "id": "MiniMax-M3.1-Flash",
+              "label": "MiniMax M3.1 Flash"
+            },
+            {
+              "id": "MiniMax-M3",
+              "label": "MiniMax M3"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized MiniMax account.",
+      "guidanceMd": "Create an API key in the MiniMax console. Use the China-region OpenAI-compatible endpoint and supported model names from the docs.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter MiniMax API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://platform.minimaxi.com/user-center/basic-information/interface-key",
+        "docs": "https://platform.minimaxi.com/docs/guides/quickstart-preparation"
+      }
+    }
+  ]
+}

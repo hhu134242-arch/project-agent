@@ -1,0 +1,8 @@
+{
+  "reviewedAt": "2026-10-20",
+  "asset": "ui/public/brands/apps/spark.svg",
+  "sourceUrl": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/spark-color.svg",
+  "sha256": "4068581452b808e4d9f8c5b43b42d324512d6801de26e57cf848125c28db85bc",
+  "license": "ui/public/brands/apps/LOBE-LICENSE",
+  "notes": "Original Lobe Icons artwork, copied without modification. Structural safety checked by check-app-brand-assets."
+}

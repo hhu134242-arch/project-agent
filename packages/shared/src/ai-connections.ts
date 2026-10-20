@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { aiProviderRoutingSchema, aiRoutingHarness, isAiRoutingCompatible, isAiSdkRoutingCompatible, type AiProviderRouting } from "./ai-provider-routing.js";
-import { isDeepSeekRouting, type AiVendorPresetId } from "./ai-vendor-presets.js";
+import {
+  AI_VENDOR_PRESET_IDS,
+  isVendorPresetRouting,
+  type AiVendorPresetId,
+} from "./ai-vendor-presets.js";
 
 /** Runtime authentication is a separate transport, never a tool or channel. */
 export const connectionPurposeTransportSchema = z.discriminatedUnion(
@@ -67,11 +71,11 @@ export const aiConnectionBindingSchema = z.discriminatedUnion("mode", [
     .strict(),
 ]);
 export type AiConnectionBinding = z.infer<typeof aiConnectionBindingSchema>;
-const vendorPresetIdSchema = z.literal("deepseek").optional();
+const vendorPresetIdSchema = z.enum(AI_VENDOR_PRESET_IDS).optional();
 const validVendorPreset = (value: { vendorPresetId?: AiVendorPresetId; provider: AiProvider; method: AiAuthMethod; routing?: AiProviderRouting }) =>
-  !value.vendorPresetId || (value.provider === "openai" && value.method === "api_key" && Boolean(value.routing && isDeepSeekRouting(value.routing)));
+  !value.vendorPresetId || (value.provider === "openai" && value.method === "api_key" && Boolean(value.routing && isVendorPresetRouting(value.vendorPresetId, value.routing)));
 export const aiConnectionMetadataSchema = z.object({ ...requirement, routing: aiProviderRoutingSchema.optional(), vendorPresetId: vendorPresetIdSchema }).strict()
-  .refine(validVendorPreset, { message: "DeepSeek requires its official API endpoint and API-key authentication", path: ["vendorPresetId"] });
+  .refine(validVendorPreset, { message: "Vendor preset requires its official API endpoint and API-key authentication", path: ["vendorPresetId"] });
 export type AiConnectionMetadata = z.infer<typeof aiConnectionMetadataSchema>;
 
 export function isAiSdkConnectionCompatible(metadata: AiConnectionMetadata): boolean {
@@ -213,7 +217,7 @@ export const createAiConnectionSchema = z
   })
   .strict()
   .superRefine((v, ctx) => {
-    if (!validVendorPreset(v)) ctx.addIssue({ code: "custom", message: "DeepSeek requires its official API endpoint and API-key authentication", path: ["vendorPresetId"] });
+    if (!validVendorPreset(v)) ctx.addIssue({ code: "custom", message: "Vendor preset requires its official API endpoint and API-key authentication", path: ["vendorPresetId"] });
     if (!AI_CONNECTION_CAPABILITIES[v.provider].methods[v.method])
       ctx.addIssue({ code: "custom", message: "Unsupported sign-in method" });
     if (v.routing && (v.method !== "api_key" || (v.routing.kind === "openrouter" && v.provider !== "openrouter") || (v.routing.kind === "bedrock" && v.provider !== "anthropic")))

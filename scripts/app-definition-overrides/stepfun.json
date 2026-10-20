@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "slug": "stepfun",
+  "name": "StepFun",
+  "description": "StepFun (阶跃星辰) models via the OpenAI-compatible API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/stepfun.svg"
+  },
+  "urlPatterns": [
+    "https://api.stepfun.com/*"
+  ],
+  "docsUrl": "https://platform.stepfun.com/docs/zh/guides/developer/openai",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "StepFun API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "stepfun",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.stepfun.com/v1",
+          "models": [
+            {
+              "id": "step-5-preview",
+              "label": "Step 5 Preview"
+            },
+            {
+              "id": "step-3.7-flash",
+              "label": "Step 3.7 Flash"
+            },
+            {
+              "id": "step-3.5-flash",
+              "label": "Step 3.5 Flash"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized StepFun account.",
+      "guidanceMd": "Create an API key on the StepFun platform. Use the official Step model IDs with the OpenAI-compatible endpoint.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter StepFun API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://platform.stepfun.com/",
+        "docs": "https://platform.stepfun.com/docs/zh/guides/developer/openai"
+      }
+    }
+  ]
+}

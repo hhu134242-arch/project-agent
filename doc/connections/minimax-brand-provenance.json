@@ -1,0 +1,8 @@
+{
+  "reviewedAt": "2026-10-20",
+  "asset": "ui/public/brands/apps/minimax.svg",
+  "sourceUrl": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/minimax-color.svg",
+  "sha256": "7f7187fa6d9b341ac5f22f6c5a970523afb439dc45566d64eb4f4b9b604d6b01",
+  "license": "ui/public/brands/apps/LOBE-LICENSE",
+  "notes": "Original Lobe Icons artwork, copied without modification. Structural safety checked by check-app-brand-assets."
+}

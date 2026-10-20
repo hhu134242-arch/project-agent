@@ -1,9 +1,15 @@
 import { useEffect, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  DEEPSEEK_MODELS, isAiSdkConnectionCompatible,
+  isAiSdkConnectionCompatible,
   type AiConnectionBinding, type AiManagedConnectionSummary, type AiRuntimeConnectionBinding,
 } from "@paperclipai/shared";
+import {
+  AI_SDK_PLATFORM_IDS,
+  aiSdkPlatform,
+  modelsForAiSdkConnection,
+  type AiSdkPlatformId,
+} from "./ai-sdk-vendor-presets";
 import { useTranslation } from "@/i18n";
 import { aiConnectionsApi } from "@/api/ai-connections";
 import { AiSdkModelField } from "@/adapters/ai-sdk/config-fields";
@@ -11,14 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AiProviderSetup } from "./AiProviderSetup";
 
-const platforms = ["deepseek", "openai", "anthropic", "openrouter", "gateway"] as const;
-type ApiPlatform = (typeof platforms)[number];
-export function aiSdkPlatform(connection: AiManagedConnectionSummary): ApiPlatform {
-  if (connection.vendorPresetId === "deepseek") return "deepseek";
-  if (connection.routing?.kind === "gateway") return "gateway";
-  if (connection.routing?.kind === "openrouter" || connection.provider === "openrouter") return "openrouter";
-  return connection.provider === "anthropic" ? "anthropic" : "openai";
-}
+export { aiSdkPlatform } from "./ai-sdk-vendor-presets";
 export function isUsableAiSdkConnection(connection: AiManagedConnectionSummary, companyId: string) {
   return connection.companyId === companyId && isAiSdkConnectionCompatible(connection)
     && connection.status === "connected" && !connection.unavailableReason;
@@ -40,7 +39,7 @@ export function AiSdkConnectionField({ companyId, agentId, value, onChange, onCl
   const selectId = useId();
   const platformId = useId();
   const [connecting, setConnecting] = useState(false);
-  const [platformChoice, setPlatformChoice] = useState<ApiPlatform>();
+  const [platformChoice, setPlatformChoice] = useState<AiSdkPlatformId>();
   const [saveError, setSaveError] = useState(false);
   const accounts = useQuery({ queryKey: ["ai-connections", companyId, agentId], queryFn: () => aiConnectionsApi.list(companyId, agentId) });
   const bound = value && (value.mode === "shared" || value.mode === "delegated")
@@ -52,14 +51,14 @@ export function AiSdkConnectionField({ companyId, agentId, value, onChange, onCl
     && value.provider === bound.provider && value.method === "api_key"
     && value.mode === (bound.ownership === "shared" ? "shared" : "delegated")
     ? connections.find(connection => connection.id === bound.id && connection.grantId === bound.grantId) : undefined;
-  const models = selected?.routing?.models.length ? selected.routing.models : selected?.vendorPresetId === "deepseek" ? DEEPSEEK_MODELS : [];
+  const models = selected ? modelsForAiSdkConnection(selected) : [];
   const valid = accounts.isSuccess && Boolean(selected) && Boolean(model.trim());
   useEffect(() => { onValidityChange?.(valid); }, [valid, onValidityChange]);
   // Cancel restores the saved connection and platform together.
   useEffect(() => { if (bound) setPlatformChoice(aiSdkPlatform(bound)); }, [bound?.id, bound?.grantId]);
   function select(connection: AiManagedConnectionSummary) {
     onChange({ provider: connection.provider, method: "api_key", mode: connection.ownership === "shared" ? "shared" : "delegated", connectionId: connection.id, grantId: connection.grantId } satisfies AiConnectionBinding);
-    const catalog = connection.routing?.models.length ? connection.routing.models : connection.vendorPresetId === "deepseek" ? DEEPSEEK_MODELS : [];
+    const catalog = modelsForAiSdkConnection(connection);
     onModelChange?.(catalog[0]?.id ?? "");
     setSaveError(false);
   }
@@ -67,13 +66,13 @@ export function AiSdkConnectionField({ companyId, agentId, value, onChange, onCl
     <label htmlFor={platformId} className="block text-sm font-medium">{t("platform.label")}</label>
     <select id={platformId} aria-label={t("platform.label")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
       disabled={readOnly} value={platform} onChange={event => {
-        setPlatformChoice(event.target.value as ApiPlatform);
+        setPlatformChoice(event.target.value as AiSdkPlatformId);
         onClear?.();
         onModelChange?.("");
         onValidityChange?.(false);
         setSaveError(false);
       }}>
-      {platforms.map(id => <option key={id} value={id}>{t(`platform.${id}`)}</option>)}
+      {AI_SDK_PLATFORM_IDS.map(id => <option key={id} value={id}>{t(`platform.${id}`)}</option>)}
     </select>
     <label htmlFor={selectId} className="block text-sm font-medium">{t("aiSdk.connection")}</label>
     <select id={selectId} aria-label={t("aiSdk.connection")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"

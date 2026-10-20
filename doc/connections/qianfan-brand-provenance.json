@@ -1,0 +1,8 @@
+{
+  "reviewedAt": "2026-10-20",
+  "asset": "ui/public/brands/apps/qianfan.svg",
+  "sourceUrl": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/baidu-color.svg",
+  "sha256": "1059750a2069aec6080ff48732931e87a99bd3d22db3e8471cebe255b6014b75",
+  "license": "ui/public/brands/apps/LOBE-LICENSE",
+  "notes": "Original Lobe Icons baidu artwork mapped to the qianfan vendor preset."
+}

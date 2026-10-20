@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "slug": "moonshot",
+  "name": "Moonshot (Kimi)",
+  "description": "Moonshot AI Kimi models via the OpenAI-compatible API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/moonshot.svg"
+  },
+  "urlPatterns": [
+    "https://api.moonshot.cn/*"
+  ],
+  "docsUrl": "https://platform.moonshot.cn/docs/api/chat",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "Moonshot (Kimi) API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "moonshot",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.moonshot.cn/v1",
+          "models": [
+            {
+              "id": "kimi-k2.5",
+              "label": "Kimi K2.5"
+            },
+            {
+              "id": "kimi-k3",
+              "label": "Kimi K3"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized Moonshot (Kimi) account.",
+      "guidanceMd": "Create an API key in the Moonshot console. Model names must match the official Kimi model list.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter Moonshot API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://platform.moonshot.cn/console/api-keys",
+        "docs": "https://platform.moonshot.cn/docs/api/chat"
+      }
+    }
+  ]
+}

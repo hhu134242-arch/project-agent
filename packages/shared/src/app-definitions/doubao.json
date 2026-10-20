@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "slug": "doubao",
+  "name": "Doubao (Volcengine Ark)",
+  "description": "ByteDance Volcengine Ark OpenAI-compatible chat API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/doubao.svg"
+  },
+  "urlPatterns": [
+    "https://ark.cn-beijing.volces.com/*"
+  ],
+  "docsUrl": "https://www.volcengine.com/docs/82379/1298454",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "Doubao (Volcengine Ark) API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "doubao",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+          "models": [
+            {
+              "id": "doubao-seed-2-1-pro-260915",
+              "label": "Doubao Seed 2.1 Pro"
+            },
+            {
+              "id": "doubao-seed-2-0-lite-260428",
+              "label": "Doubao Seed 2.0 Lite"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized Doubao (Volcengine Ark) account.",
+      "guidanceMd": "Enable model access in Volcengine Ark and create an API key. Use the Model ID from the Ark console with the v3 OpenAI-compatible endpoint.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter Ark API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
+        "docs": "https://www.volcengine.com/docs/82379/1298454"
+      }
+    }
+  ]
+}

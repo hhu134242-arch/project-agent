@@ -22,7 +22,7 @@
   "aiSdk.maxStepsHint": "每次执行的模型与工具循环上限（1–50）。",
   "aiSdk.providerDescription": "通过 API Key 使用 DeepSeek 模型",
   "aiSdk.endpoint": "官方 API 地址",
-  "aiSdk.getKey": "获取 DeepSeek API Key",
+  "aiSdk.getKey": "获取 API Key",
   "provider.connectTitle": "接入模型服务商",
   "provider.connectName": "接入 {{name}}",
   "provider.reconnectName": "重新连接 {{name}}",

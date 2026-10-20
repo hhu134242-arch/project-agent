@@ -5,6 +5,8 @@ import type { ToolConnectionOwnership } from "./types/tool-access.js";
 
 export const CONNECTABLE_APP_SLUGS = new Set([
   "anthropic", "openai", "openrouter", "xai", "google", "bedrock", "deepseek",
+  "qwen", "moonshot", "zhipu", "doubao", "siliconflow", "minimax", "baichuan", "stepfun",
+  "lingyiwanwu", "hunyuan", "qianfan", "spark",
   "responses-api", "messages-api", "chat-completions-api", "local",
   "agentmail",
   "browser-use-cloud",

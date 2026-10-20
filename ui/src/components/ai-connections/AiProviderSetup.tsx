@@ -3,16 +3,23 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Network, Monitor } from "lucide-react";
 import {
-  DEEPSEEK_BASE_URL,
-  DEEPSEEK_MODELS,
+  AI_SDK_VENDOR_PRESET_IDS,
+  AI_VENDOR_PRESETS,
   aiProviderRoutingSchema,
   isAiSdkRoutingCompatible,
   createAiConnectionSchema,
+  isAiVendorPresetId,
   type AiProvider,
   type AiProviderRouting,
   type AiConnectionBinding,
   type AiManagedConnectionSummary,
 } from "@paperclipai/shared";
+import {
+  AI_SDK_PLATFORM_IDS,
+  isAiSdkGatewayVendor,
+  vendorPresetConsoleKeysUrl,
+  type AiSdkPlatformId,
+} from "./ai-sdk-vendor-presets";
 import { aiConnectionsApi } from "@/api/ai-connections";
 import { agentsApi } from "@/api/agents";
 import { ConnectionChoiceList } from "@/features/connections/ConnectionChoiceList";
@@ -29,8 +36,14 @@ import {
 } from "@/components/ui/select";
 import { AiConnectionCredentialStep } from "./AiConnectionCredentialStep";
 
+const gatewayVendorProviders = AI_SDK_VENDOR_PRESET_IDS.map(id => ({
+  id,
+  name: AI_VENDOR_PRESETS[id].name,
+  description: AI_VENDOR_PRESETS[id].description,
+}));
+
 const providers = [
-  { id: "deepseek", name: "DeepSeek", description: "DeepSeek models with your API key" },
+  ...gatewayVendorProviders,
   {
     id: "openai",
     name: "OpenAI",
@@ -68,7 +81,12 @@ const providers = [
     advanced: true,
   },
 ] as const;
-type ProviderChoice = (typeof providers)[number]["id"];
+type ProviderChoice =
+  | AiSdkPlatformId
+  | "google"
+  | "xai"
+  | "bedrock"
+  | "local";
 
 export function AiProviderSetup({
   companyId,
@@ -100,7 +118,9 @@ export function AiProviderSetup({
   const { t } = useTranslation();
   const [provider, setProvider] = useState<ProviderChoice | undefined>(
     reconnect
-      ? reconnect.vendorPresetId === "deepseek" ? "deepseek" : reconnect.routing?.kind === "gateway" ||
+      ? reconnect.vendorPresetId && isAiVendorPresetId(reconnect.vendorPresetId)
+        ? reconnect.vendorPresetId
+        : reconnect.routing?.kind === "gateway" ||
         reconnect.routing?.kind === "local" ||
         reconnect.routing?.kind === "bedrock"
         ? reconnect.routing.kind
@@ -114,17 +134,22 @@ export function AiProviderSetup({
   const [allAgentsChoice, setAllAgents] = useState<boolean>();
   const [agentIds, setAgentIds] = useState(new Set(agentId ? [agentId] : []));
   const [protocol, setProtocol] = useState<AiProviderRouting["protocol"]>(
-    reconnect?.routing?.protocol ?? initialProtocol ?? ((initialProvider === "deepseek" || initialProvider === "openrouter" || apiKeyOnly) ? "chat" : "responses"),
+    reconnect?.routing?.protocol ?? initialProtocol ?? ((initialProvider && (isAiSdkGatewayVendor(initialProvider) || initialProvider === "openrouter") || apiKeyOnly) ? "chat" : "responses"),
   );
   const [auth, setAuth] = useState<AiProviderRouting["auth"]>(
     reconnect?.routing?.auth ?? "bearer",
   );
-  const [baseUrl, setBaseUrl] = useState(reconnect?.routing?.baseUrl ?? (initialProvider === "deepseek" ? DEEPSEEK_BASE_URL : ""));
+  const [baseUrl, setBaseUrl] = useState(
+    reconnect?.routing?.baseUrl ?? (initialProvider && isAiSdkGatewayVendor(initialProvider) ? AI_VENDOR_PRESETS[initialProvider].baseUrl : ""),
+  );
   const [region, setRegion] = useState(
     reconnect?.routing?.region ?? "us-east-1",
   );
   const [models, setModels] = useState(
-    reconnect?.routing?.models.map((m) => m.id).join(", ") ?? (initialProvider === "deepseek" ? DEEPSEEK_MODELS.map(m => m.id).join(", ") : ""),
+    reconnect?.routing?.models.map((m) => m.id).join(", ")
+      ?? (initialProvider && isAiSdkGatewayVendor(initialProvider)
+        ? AI_VENDOR_PRESETS[initialProvider].models.map(m => m.id).join(", ")
+        : ""),
   );
   const [apiKey, setApiKey] = useState("");
   const client = useQueryClient();
@@ -140,9 +165,11 @@ export function AiProviderSetup({
     queryFn: () => agentsApi.list(companyId),
   });
   const label = providerLabel ?? (provider === "gateway" && apiKeyOnly ? t("platform.gateway") : providers.find((p) => p.id === provider)?.name ?? "provider");
-  const advanced = apiKeyOnly || (reconnect ? Boolean(reconnect.routing) : ["deepseek", "openrouter", "bedrock", "gateway", "local"].includes(provider ?? ""));
+  const advanced = apiKeyOnly || (reconnect ? Boolean(reconnect.routing) : provider
+    ? [...AI_SDK_VENDOR_PRESET_IDS, "openrouter", "bedrock", "gateway", "local"].includes(provider)
+    : false);
   const nativeProvider: AiProvider =
-    provider === "deepseek" ? "openai" : provider === "bedrock"
+    provider && isAiSdkGatewayVendor(provider) ? "openai" : provider === "bedrock"
       ? "anthropic"
       : provider === "gateway" || provider === "local"
         ? protocol === "messages"
@@ -181,13 +208,13 @@ export function AiProviderSetup({
       const routing = apiKeyOnly && (provider === "openai" || provider === "anthropic") && !reconnect?.routing ? undefined :
         reconnect?.routing ??
         aiProviderRoutingSchema.parse({
-          kind: provider === "deepseek" ? "gateway" : provider,
-          protocol: provider === "deepseek" ? "chat" : provider === "bedrock" ? "bedrock" : protocol,
-          auth: provider === "deepseek" || provider === "openrouter" ? "bearer" : auth,
+          kind: provider && isAiSdkGatewayVendor(provider) ? "gateway" : provider,
+          protocol: provider && isAiSdkGatewayVendor(provider) ? "chat" : provider === "bedrock" ? "bedrock" : protocol,
+          auth: (provider && isAiSdkGatewayVendor(provider)) || provider === "openrouter" ? "bearer" : auth,
           ...(provider === "bedrock"
             ? { region }
-            : provider === "gateway" || provider === "local" || provider === "deepseek"
-              ? { baseUrl }
+            : provider === "gateway" || provider === "local" || (provider && isAiSdkGatewayVendor(provider))
+              ? { baseUrl: provider && isAiSdkGatewayVendor(provider) ? AI_VENDOR_PRESETS[provider].baseUrl : baseUrl }
               : {}),
           models: models
             .split(",")
@@ -200,7 +227,7 @@ export function AiProviderSetup({
         companyId,
         createAiConnectionSchema.parse({
           provider: nativeProvider,
-          ...(provider === "deepseek" ? { vendorPresetId: "deepseek" } : {}),
+          ...(provider && isAiSdkGatewayVendor(provider) ? { vendorPresetId: provider } : {}),
           method: "api_key",
           name,
           ownership,
@@ -220,10 +247,12 @@ export function AiProviderSetup({
   const choices = (advancedOnly: boolean) => (
     <ConnectionChoiceList
       choices={providers
-        .filter((p) => apiKeyOnly ? ["deepseek", "openai", "anthropic", "openrouter", "gateway"].includes(p.id) : Boolean("advanced" in p && p.advanced) === advancedOnly)
+        .filter((p) => apiKeyOnly ? (AI_SDK_PLATFORM_IDS as readonly string[]).includes(p.id) : Boolean("advanced" in p && p.advanced) === advancedOnly)
         .map((p) => ({
           ...p,
-          ...(apiKeyOnly ? { description: t("platform.apiDescription", { platform: p.name }) } : p.id === "deepseek" ? { description: t("aiSdk.providerDescription") } : {}),
+          ...(apiKeyOnly
+            ? { description: t("platform.apiDescription", { platform: t(`platform.${p.id}`, { defaultValue: p.name }) }) }
+            : isAiSdkGatewayVendor(p.id) ? { description: t("platform.apiDescription", { platform: p.name }) } : {}),
           icon:
             p.id === "gateway" || p.id === "local" ? (
               <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
@@ -242,9 +271,9 @@ export function AiProviderSetup({
         setStep("connect");
         setApiKey("");
         setAuth("bearer");
-        setProtocol(id === "deepseek" || id === "openrouter" || apiKeyOnly ? "chat" : initialProtocol ?? "responses");
-        setBaseUrl(id === "deepseek" ? DEEPSEEK_BASE_URL : "");
-        setModels(id === "deepseek" ? DEEPSEEK_MODELS.map(m => m.id).join(", ") : "");
+        setProtocol(isAiSdkGatewayVendor(id) || id === "openrouter" || apiKeyOnly ? "chat" : initialProtocol ?? "responses");
+        setBaseUrl(isAiSdkGatewayVendor(id) ? AI_VENDOR_PRESETS[id].baseUrl : "");
+        setModels(isAiSdkGatewayVendor(id) ? AI_VENDOR_PRESETS[id].models.map(m => m.id).join(", ") : "");
         save.reset();
       }}
     />
@@ -336,7 +365,7 @@ export function AiProviderSetup({
             save.mutate();
           }}
         >
-          {!apiKeyOnly && provider === "deepseek" && <div className="space-y-2 text-sm text-muted-foreground"><p>{t("aiSdk.endpoint")}: {DEEPSEEK_BASE_URL}</p><a className="underline underline-offset-4" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">{t("aiSdk.getKey")}</a></div>}
+          {!apiKeyOnly && provider && isAiSdkGatewayVendor(provider) && <div className="space-y-2 text-sm text-muted-foreground"><p>{t("aiSdk.endpoint")}: {AI_VENDOR_PRESETS[provider].baseUrl}</p><a className="underline underline-offset-4" href={vendorPresetConsoleKeysUrl(provider)} target="_blank" rel="noopener noreferrer">{t("aiSdk.getKey")}</a></div>}
           {apiKeyOnly && <p className="text-sm text-muted-foreground">{t(provider === "gateway" ? "platform.remoteOnly" : "platform.officialEndpoint", { platform: label })}</p>}
           {(provider === "gateway" || provider === "local") && (
             <>
@@ -394,7 +423,7 @@ export function AiProviderSetup({
               />
             </label>
           )}
-          {provider !== "openrouter" && provider !== "deepseek" && (!apiKeyOnly || provider === "gateway") && (
+          {provider !== "openrouter" && !(provider && isAiSdkGatewayVendor(provider)) && (!apiKeyOnly || provider === "gateway") && (
             <label className="block space-y-2 text-xs text-muted-foreground">
               {t("provider.authentication")}
               <Select

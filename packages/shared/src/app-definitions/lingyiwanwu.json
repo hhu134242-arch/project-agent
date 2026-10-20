@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "slug": "lingyiwanwu",
+  "name": "01.AI (Yi)",
+  "description": "01.AI Yi models via the Lingyiwanwu OpenAI-compatible API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/lingyiwanwu.svg"
+  },
+  "urlPatterns": [
+    "https://api.lingyiwanwu.com/*"
+  ],
+  "docsUrl": "https://platform.lingyiwanwu.com/docs",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "01.AI (Yi) API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "lingyiwanwu",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.lingyiwanwu.com/v1",
+          "models": [
+            {
+              "id": "yi-lightning",
+              "label": "Yi Lightning"
+            },
+            {
+              "id": "yi-large",
+              "label": "Yi Large"
+            },
+            {
+              "id": "yi-medium",
+              "label": "Yi Medium"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized 01.AI (Yi) account.",
+      "guidanceMd": "Apply for API access on the Lingyiwanwu platform and use the documented Yi model IDs.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter 01.AI API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://platform.lingyiwanwu.com/",
+        "docs": "https://platform.lingyiwanwu.com/docs"
+      }
+    }
+  ]
+}

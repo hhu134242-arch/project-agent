@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "slug": "qwen",
+  "name": "Qwen (DashScope)",
+  "description": "Alibaba Cloud DashScope OpenAI-compatible API for Qwen models.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/qwen.svg"
+  },
+  "urlPatterns": [
+    "https://dashscope.aliyuncs.com/*"
+  ],
+  "docsUrl": "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "Qwen (DashScope) API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "qwen",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          "models": [
+            {
+              "id": "qwen-max",
+              "label": "Qwen Max"
+            },
+            {
+              "id": "qwen-plus",
+              "label": "Qwen Plus"
+            },
+            {
+              "id": "qwen-turbo",
+              "label": "Qwen Turbo"
+            },
+            {
+              "id": "qwen-long",
+              "label": "Qwen Long"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized Qwen (DashScope) account.",
+      "guidanceMd": "Create a DashScope API key in the Alibaba Cloud Model Studio console. Use the compatible-mode endpoint and pick a Qwen model ID from the official model list.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter DashScope API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://bailian.console.aliyun.com/?apiKey=1",
+        "docs": "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope"
+      }
+    }
+  ]
+}

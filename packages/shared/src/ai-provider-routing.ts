@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isDeepSeekRouting, type AiVendorPresetId } from "./ai-vendor-presets.js";
+import { AI_VENDOR_PRESETS, isVendorPresetRouting, type AiVendorPresetId } from "./ai-vendor-presets.js";
 
 /** Value-free routing stored on the connection, never supplied by an agent binding. */
 export const aiProviderRoutingSchema = z
@@ -152,7 +152,7 @@ export function aiRoutingModel(
 
 /** Catalog identity is derived from routing, including accounts saved before these rows existed. */
 export function aiConnectionCatalogSlug(provider: string, routing?: Pick<AiProviderRouting, "kind" | "protocol"> & Partial<AiProviderRouting>, vendorPresetId?: AiVendorPresetId): string {
-  if (vendorPresetId === "deepseek" && routing && isDeepSeekRouting(routing)) return "deepseek";
+  if (vendorPresetId && routing && isVendorPresetRouting(vendorPresetId, routing)) return vendorPresetId;
   if (routing?.kind === "gateway") {
     return routing.protocol === "messages" ? "messages-api"
       : routing.protocol === "chat" ? "chat-completions-api" : "responses-api";
@@ -162,12 +162,15 @@ export function aiConnectionCatalogSlug(provider: string, routing?: Pick<AiProvi
 
 /** Direct catalog setup presets; legacy gateway links still open their existing setup. */
 export function aiProviderSetupPreset(source: string | null): {
-  provider: "openrouter" | "bedrock" | "gateway" | "local" | "google" | "deepseek";
+  provider: "openrouter" | "bedrock" | "gateway" | "local" | "google" | "deepseek" | AiVendorPresetId;
   protocol?: AiProviderRouting["protocol"];
   label?: string;
 } | undefined {
+  if (source && source in AI_VENDOR_PRESETS) {
+    const preset = AI_VENDOR_PRESETS[source as AiVendorPresetId];
+    return { provider: preset.id, protocol: "chat", label: preset.name };
+  }
   switch (source) {
-    case "deepseek": return { provider: "deepseek", protocol: "chat", label: "DeepSeek" };
     case "responses-api": return { provider: "gateway", protocol: "responses", label: "Responses API" };
     case "messages-api": return { provider: "gateway", protocol: "messages", label: "Messages API" };
     case "chat-completions-api": return { provider: "gateway", protocol: "chat", label: "Chat Completions API" };
