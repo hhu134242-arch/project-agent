@@ -6,6 +6,7 @@ import type { CreateConfigValues } from "@paperclipai/adapter-utils";
 import type { LocalAiLoginStatus } from "@paperclipai/shared";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "./ui/tooltip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Mocks (hoisted so vi.mock factories can close over them) ----------------
@@ -291,7 +292,7 @@ function renderWizardView(root: ReturnType<typeof createRoot>, queryClient: Quer
   return act(async () => {
     root.render(
       <QueryClientProvider client={queryClient}>
-        <OnboardingWizard />
+        <TooltipProvider><OnboardingWizard /></TooltipProvider>
       </QueryClientProvider>,
     );
   });
@@ -350,6 +351,8 @@ function isArcPrimary(text: string): boolean {
 describe("OnboardingWizard restore-gate (stale localStorage across accounts)", () => {
   beforeEach(() => {
     mockAdaptersApi.list.mockReset().mockResolvedValue([]);
+    managedApi.list.mockReset().mockResolvedValue({ currentUserId: "user-1", connections: [] });
+    mockEnvironmentsApi.list.mockReset().mockResolvedValue([]);
     mockEnvironmentsApi.probe.mockReset().mockResolvedValue({ ok: true, driver: "sandbox", summary: "Measured image", details: { platformQualificationRecorded: true, leaseId: "platform-lease" } });
     localHealth.get.mockResolvedValue({ deploymentMode: "authenticated" });
     managedApi.checkLocalLogin.mockReset().mockResolvedValue({
@@ -427,6 +430,46 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
   afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
+  });
+
+  it("tests and hires the first DeepSeek agent with its explicit account and exact model", async () => {
+    const { deepSeekRouting } = await import("@paperclipai/shared");
+    const connectionId = "00000000-0000-4000-8000-000000000011";
+    const grantId = "00000000-0000-4000-8000-000000000012";
+    const selected = { mode: "delegated", provider: "openai", method: "api_key", connectionId, grantId };
+    mockCompany.companies = [{ id: "c1", name: "DeepSeek fixture", issuePrefix: "DSK" }];
+    mockCompaniesApi.list.mockResolvedValue(mockCompany.companies);
+    mockAdapterRegistry.list = [{ type: "ai_sdk", recommended: true }];
+    managedApi.list.mockResolvedValue({ currentUserId: SESSION_USER_ID, connections: [{
+      id: connectionId, grantId, companyId: "c1", provider: "openai", method: "api_key", vendorPresetId: "deepseek",
+      routing: deepSeekRouting(), ownership: "personal", status: "connected", name: "My DeepSeek", isDefault: false,
+    }] } as never);
+    mockEnvironmentsApi.list.mockResolvedValue([{ id: "local-fixture", companyId: "c1", name: "Local", driver: "local", status: "active", metadata: { defaultForInstance: true } }]);
+    mockAdapterBuild.buildAdapterConfig.mockImplementation(values => ({ model: values!.model }));
+    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
+      step: 4, createdCompanyId: "c1", companyName: "DeepSeek fixture", agentName: "DeepSeek Assistant",
+      adapterType: "ai_sdk", model: "custom-deepseek-model", aiSdkBinding: selected, credentialModeChoice: "api",
+    }));
+    const { root, queryClient } = render();
+    try {
+      await renderWizardView(root, queryClient);
+      await flushReact();
+      const button = [...document.body.querySelectorAll("button")].find(element => element.textContent?.trim() === "Test and create agent")!;
+      expect(button).toBeTruthy();
+      await vi.waitFor(async () => { await flushReact(); expect(button.disabled, document.body.textContent ?? "").toBe(false); }, { timeout: 5_000 });
+      expect(document.body.querySelector('[role="radio"][aria-checked="true"]')).not.toBeNull();
+      await act(async () => { button.click(); });
+      await vi.waitFor(async () => { await flushReact(); expect(mockAgentsApi.hire).toHaveBeenCalled(); }, { timeout: 5_000 });
+      expect(mockAgentsApi.testEnvironment, document.body.textContent ?? "").toHaveBeenCalledWith("c1", "ai_sdk", expect.objectContaining({
+        adapterConfig: { model: "custom-deepseek-model" }, aiConnection: selected, environmentId: "local-fixture",
+      }));
+      expect(mockAgentsApi.hire).toHaveBeenCalledWith("c1", expect.objectContaining({
+        adapterType: "ai_sdk", onboardingFirstAgent: true, adapterConfig: { model: "custom-deepseek-model" },
+        runtimeConfig: expect.objectContaining({ aiConnection: selected }),
+      }));
+      expect(managedApi.connectLocal).not.toHaveBeenCalled();
+      expect(mockAgentsApi.getClaudeOAuthTokenStatus).not.toHaveBeenCalled();
+    } finally { await act(async () => root.unmount()); }
   });
 
   describe("step 1 leads straight to the agent — there is no mission step 2", () => {

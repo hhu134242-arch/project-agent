@@ -1,0 +1,17 @@
+{
+  "platform.label": "API platform",
+  "platform.deepseek": "DeepSeek",
+  "platform.openai": "OpenAI",
+  "platform.anthropic": "Anthropic",
+  "platform.openrouter": "OpenRouter",
+  "platform.gateway": "Custom compatible API",
+  "platform.exactModelId": "Enter the exact model ID",
+  "platform.remoteOnly": "Use a public HTTPS API endpoint. Local endpoints and subscription accounts are not supported.",
+  "platform.officialEndpoint": "Connect directly to {{platform}} using your API key.",
+  "platform.apiDescription": "Connect with your {{platform}} API key",
+  "platform.test": "Test",
+  "platform.save": "Save",
+  "platform.saving": "Saving...",
+  "platform.unsaved": "Unsaved changes",
+  "platform.permissionNotice": "Only a connection manager can share this credential with everyone or give every agent access."
+}

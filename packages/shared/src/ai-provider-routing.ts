@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isDeepSeekRouting, type AiVendorPresetId } from "./ai-vendor-presets.js";
 
 /** Value-free routing stored on the connection, never supplied by an agent binding. */
 export const aiProviderRoutingSchema = z
@@ -75,6 +76,22 @@ export const aiProviderRoutingSchema = z
     }
   });
 export type AiProviderRouting = z.infer<typeof aiProviderRoutingSchema>;
+
+/** UI/admission filter. The server must also validate and pin DNS at the socket boundary. */
+export function isAiSdkRoutingCompatible(route: AiProviderRouting): boolean {
+  if (route.kind === "openrouter") return route.protocol === "chat" && route.auth === "bearer" && !route.baseUrl;
+  if (route.kind !== "gateway" || !["chat", "responses", "messages"].includes(route.protocol)) return false;
+  if (route.auth === "api_key" && route.protocol !== "messages") return false;
+  try {
+    const url = new URL(route.baseUrl ?? "");
+    const host = url.hostname.toLowerCase();
+    // IP literals and local names are intentionally excluded from this first
+    // version. DNS names still receive the full runtime address guard.
+    return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash
+      && host.includes(".") && !host.includes(":") && !/^\d+(?:\.\d+){3}$/.test(host)
+      && !/(?:^|\.)(?:localhost|local|internal|test|invalid)$/.test(host);
+  } catch { return false; }
+}
 export function aiRoutingHarness(
   adapter: string,
   provider?: unknown,
@@ -100,6 +117,7 @@ export function isAiRoutingCompatible(
   route: AiProviderRouting,
   harness: string,
 ): boolean {
+  if (harness === "ai_sdk") return isAiSdkRoutingCompatible(route);
   if (route.kind === "bedrock") return harness === "claude_local";
   if (route.kind === "openrouter")
     return [
@@ -133,7 +151,8 @@ export function aiRoutingModel(
 }
 
 /** Catalog identity is derived from routing, including accounts saved before these rows existed. */
-export function aiConnectionCatalogSlug(provider: string, routing?: Pick<AiProviderRouting, "kind" | "protocol">): string {
+export function aiConnectionCatalogSlug(provider: string, routing?: Pick<AiProviderRouting, "kind" | "protocol"> & Partial<AiProviderRouting>, vendorPresetId?: AiVendorPresetId): string {
+  if (vendorPresetId === "deepseek" && routing && isDeepSeekRouting(routing)) return "deepseek";
   if (routing?.kind === "gateway") {
     return routing.protocol === "messages" ? "messages-api"
       : routing.protocol === "chat" ? "chat-completions-api" : "responses-api";
@@ -143,11 +162,12 @@ export function aiConnectionCatalogSlug(provider: string, routing?: Pick<AiProvi
 
 /** Direct catalog setup presets; legacy gateway links still open their existing setup. */
 export function aiProviderSetupPreset(source: string | null): {
-  provider: "openrouter" | "bedrock" | "gateway" | "local" | "google";
+  provider: "openrouter" | "bedrock" | "gateway" | "local" | "google" | "deepseek";
   protocol?: AiProviderRouting["protocol"];
   label?: string;
 } | undefined {
   switch (source) {
+    case "deepseek": return { provider: "deepseek", protocol: "chat", label: "DeepSeek" };
     case "responses-api": return { provider: "gateway", protocol: "responses", label: "Responses API" };
     case "messages-api": return { provider: "gateway", protocol: "messages", label: "Messages API" };
     case "chat-completions-api": return { provider: "gateway", protocol: "chat", label: "Chat Completions API" };

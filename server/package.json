@@ -64,6 +64,8 @@
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/otlp-transformer": "0.221.0",
+    "@opentelemetry/resources": "2.10.0",
+    "@paperclipai/adapter-ai-sdk": "workspace:*",
     "@paperclipai/adapter-claude-local": "workspace:*",
     "@paperclipai/adapter-codex-local": "workspace:*",
     "@paperclipai/adapter-cursor-cloud": "workspace:*",
@@ -113,8 +115,7 @@
     "ssh2": "^1.17.0",
     "svix": "1.76.1",
     "ws": "^8.22.0",
-    "zod": "^4.4.3",
-    "@opentelemetry/resources": "2.10.0"
+    "zod": "^4.4.3"
   },
   "bundleDependencies": [
     "@agentclientprotocol/claude-agent-acp",

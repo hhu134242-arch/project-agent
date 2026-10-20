@@ -1,0 +1,19 @@
+{
+  "onboarding.stepLabel.name": "Name your organization",
+  "onboarding.stepLabel.createAgent": "Create your first agent",
+  "onboarding.stepLabel.connectModel": "Connect a model",
+  "onboarding.stepLabel.review": "Review",
+  "onboarding.stepLabel.number": "Step {{step}}",
+  "onboarding.stepLabel.progress": "Step {{step}} of {{total}}",
+  "onboarding.sdk.connect": "Test and create agent",
+  "onboarding.sdk.environment": "Execution environment",
+  "onboarding.sdk.defaultEnvironment": "Follow instance default",
+  "onboarding.sdk.probeCost": "Testing makes a small billable API request.",
+  "onboarding.modelSource": "Model source",
+  "onboarding.credential.subscription": "Subscription",
+  "onboarding.credential.api": "API key",
+  "onboarding.credential.advanced": "Custom Gateway",
+  "onboarding.sdk.environmentLoadFailed": "Could not load execution environment settings. Retry before creating the agent.",
+  "onboarding.switchCredential.api": "Use API key instead",
+  "onboarding.switchCredential.subscription": "Use subscription instead"
+}

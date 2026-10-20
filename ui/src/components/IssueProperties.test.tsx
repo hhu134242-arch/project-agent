@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@/i18n";
 import type { ComponentProps, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -668,6 +669,25 @@ describe("IssueProperties", () => {
 
   afterEach(() => {
     document.body.innerHTML = "";
+  });
+
+  it("updates task property labels in Chinese while preserving status values and task content", async () => {
+    const issue = createIssue({ title: "Original task title", status: "in_progress" });
+    const { root, queryClient } = renderPropertiesWithQueryClient(container, { issue, childIssues: [], onUpdate: vi.fn(), inline: true });
+    try {
+      await flush();
+      await act(async () => { await i18n.changeLanguage("zh-CN"); });
+      expect(container.textContent).toContain("状态");
+      // StatusIcon is deliberately mocked in this fixture. The actual
+      // translated status/priority components are exercised by TaskLanguage.
+      expect(container.querySelector('[data-testid="status-icon"]')?.textContent).toBe("in_progress");
+      expect(container.textContent).toContain("负责人");
+      expect(container.textContent).toContain("关联关系");
+      expect(issue.status).toBe("in_progress");
+      expect(issue.title).toBe("Original task title");
+    } finally {
+      await act(async () => { await i18n.changeLanguage("en"); root.unmount(); }); queryClient.clear();
+    }
   });
 
   it("marks the task-detail property typography and section rhythm", () => {

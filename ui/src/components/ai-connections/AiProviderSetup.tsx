@@ -1,8 +1,12 @@
+import { useTranslation } from "@/i18n";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Network, Monitor } from "lucide-react";
 import {
+  DEEPSEEK_BASE_URL,
+  DEEPSEEK_MODELS,
   aiProviderRoutingSchema,
+  isAiSdkRoutingCompatible,
   createAiConnectionSchema,
   type AiProvider,
   type AiProviderRouting,
@@ -26,6 +30,7 @@ import {
 import { AiConnectionCredentialStep } from "./AiConnectionCredentialStep";
 
 const providers = [
+  { id: "deepseek", name: "DeepSeek", description: "DeepSeek models with your API key" },
   {
     id: "openai",
     name: "OpenAI",
@@ -73,6 +78,7 @@ export function AiProviderSetup({
   initialProtocol,
   providerLabel,
   advancedOnly = false,
+  apiKeyOnly = false,
   reconnect,
   onCancel,
   onComplete,
@@ -84,15 +90,17 @@ export function AiProviderSetup({
   initialProtocol?: AiProviderRouting["protocol"];
   providerLabel?: string;
   advancedOnly?: boolean;
+  apiKeyOnly?: boolean;
   reconnect?: AiManagedConnectionSummary;
   onCancel: () => void;
   onComplete: (
     binding: Exclude<AiConnectionBinding, { mode: "responsible_user" }>,
   ) => void;
 }) {
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<ProviderChoice | undefined>(
     reconnect
-      ? reconnect.routing?.kind === "gateway" ||
+      ? reconnect.vendorPresetId === "deepseek" ? "deepseek" : reconnect.routing?.kind === "gateway" ||
         reconnect.routing?.kind === "local" ||
         reconnect.routing?.kind === "bedrock"
         ? reconnect.routing.kind
@@ -106,17 +114,17 @@ export function AiProviderSetup({
   const [allAgentsChoice, setAllAgents] = useState<boolean>();
   const [agentIds, setAgentIds] = useState(new Set(agentId ? [agentId] : []));
   const [protocol, setProtocol] = useState<AiProviderRouting["protocol"]>(
-    reconnect?.routing?.protocol ?? initialProtocol ?? "responses",
+    reconnect?.routing?.protocol ?? initialProtocol ?? ((initialProvider === "deepseek" || initialProvider === "openrouter" || apiKeyOnly) ? "chat" : "responses"),
   );
   const [auth, setAuth] = useState<AiProviderRouting["auth"]>(
     reconnect?.routing?.auth ?? "bearer",
   );
-  const [baseUrl, setBaseUrl] = useState(reconnect?.routing?.baseUrl ?? "");
+  const [baseUrl, setBaseUrl] = useState(reconnect?.routing?.baseUrl ?? (initialProvider === "deepseek" ? DEEPSEEK_BASE_URL : ""));
   const [region, setRegion] = useState(
     reconnect?.routing?.region ?? "us-east-1",
   );
   const [models, setModels] = useState(
-    reconnect?.routing?.models.map((m) => m.id).join(", ") ?? "",
+    reconnect?.routing?.models.map((m) => m.id).join(", ") ?? (initialProvider === "deepseek" ? DEEPSEEK_MODELS.map(m => m.id).join(", ") : ""),
   );
   const [apiKey, setApiKey] = useState("");
   const client = useQueryClient();
@@ -131,10 +139,10 @@ export function AiProviderSetup({
     queryKey: ["agents", companyId, "provider-access"],
     queryFn: () => agentsApi.list(companyId),
   });
-  const label = providerLabel ?? providers.find((p) => p.id === provider)?.name ?? "provider";
-  const advanced = reconnect ? Boolean(reconnect.routing) : ["openrouter", "bedrock", "gateway", "local"].includes(provider ?? "");
+  const label = providerLabel ?? (provider === "gateway" && apiKeyOnly ? t("platform.gateway") : providers.find((p) => p.id === provider)?.name ?? "provider");
+  const advanced = apiKeyOnly || (reconnect ? Boolean(reconnect.routing) : ["deepseek", "openrouter", "bedrock", "gateway", "local"].includes(provider ?? ""));
   const nativeProvider: AiProvider =
-    provider === "bedrock"
+    provider === "deepseek" ? "openai" : provider === "bedrock"
       ? "anthropic"
       : provider === "gateway" || provider === "local"
         ? protocol === "messages"
@@ -143,7 +151,7 @@ export function AiProviderSetup({
         : (provider ?? "openai");
   const name =
     reconnect?.name ??
-    `${ownership === "personal" ? "My" : "Company"} ${
+    t(ownership === "personal" ? "provider.myAccount" : "provider.companyAccount", { name:
       provider === "gateway" && baseUrl
         ? (() => {
             try {
@@ -153,7 +161,7 @@ export function AiProviderSetup({
             }
           })()
         : label
-    }`;
+    });
   const complete = (result: {
     connectionId: string;
     grantId: string;
@@ -170,15 +178,15 @@ export function AiProviderSetup({
   };
   const save = useMutation({
     mutationFn: () => {
-      const routing =
+      const routing = apiKeyOnly && (provider === "openai" || provider === "anthropic") && !reconnect?.routing ? undefined :
         reconnect?.routing ??
         aiProviderRoutingSchema.parse({
-          kind: provider,
-          protocol: provider === "bedrock" ? "bedrock" : protocol,
-          auth: provider === "openrouter" ? "bearer" : auth,
+          kind: provider === "deepseek" ? "gateway" : provider,
+          protocol: provider === "deepseek" ? "chat" : provider === "bedrock" ? "bedrock" : protocol,
+          auth: provider === "deepseek" || provider === "openrouter" ? "bearer" : auth,
           ...(provider === "bedrock"
             ? { region }
-            : provider === "gateway" || provider === "local"
+            : provider === "gateway" || provider === "local" || provider === "deepseek"
               ? { baseUrl }
               : {}),
           models: models
@@ -187,10 +195,12 @@ export function AiProviderSetup({
             .filter(Boolean)
             .map((id) => ({ id })),
         });
+      if (apiKeyOnly && routing && !isAiSdkRoutingCompatible(routing)) throw new Error(t("platform.remoteOnly"));
       return aiConnectionsApi.create(
         companyId,
         createAiConnectionSchema.parse({
           provider: nativeProvider,
+          ...(provider === "deepseek" ? { vendorPresetId: "deepseek" } : {}),
           method: "api_key",
           name,
           ownership,
@@ -210,9 +220,10 @@ export function AiProviderSetup({
   const choices = (advancedOnly: boolean) => (
     <ConnectionChoiceList
       choices={providers
-        .filter((p) => Boolean("advanced" in p && p.advanced) === advancedOnly)
+        .filter((p) => apiKeyOnly ? ["deepseek", "openai", "anthropic", "openrouter", "gateway"].includes(p.id) : Boolean("advanced" in p && p.advanced) === advancedOnly)
         .map((p) => ({
           ...p,
+          ...(apiKeyOnly ? { description: t("platform.apiDescription", { platform: p.name }) } : p.id === "deepseek" ? { description: t("aiSdk.providerDescription") } : {}),
           icon:
             p.id === "gateway" || p.id === "local" ? (
               <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
@@ -231,29 +242,31 @@ export function AiProviderSetup({
         setStep("connect");
         setApiKey("");
         setAuth("bearer");
+        setProtocol(id === "deepseek" || id === "openrouter" || apiKeyOnly ? "chat" : initialProtocol ?? "responses");
+        setBaseUrl(id === "deepseek" ? DEEPSEEK_BASE_URL : "");
+        setModels(id === "deepseek" ? DEEPSEEK_MODELS.map(m => m.id).join(", ") : "");
         save.reset();
       }}
     />
   );
   const modelSettings = (
     <label className="block space-y-2 text-xs text-muted-foreground">
-      Model IDs (comma separated)
+      {t("provider.modelIds")}
       <Input
-        aria-label="Model IDs"
+        aria-label={t("provider.modelIdsLabel")}
         value={models}
         onChange={(e) => setModels(e.target.value)}
         disabled={Boolean(reconnect)}
       />
       <span className="block">
-        Use the provider’s model ID or your gateway’s alias. You can
-        also enter one on the agent.
+        {t("provider.modelHint")}
       </span>
     </label>
   );
   const accessDefaults = !reconnect ? (
     <ConnectionAccessDefaults
       companyId={companyId}
-      extra={advanced ? modelSettings : undefined}
+      extra={advanced && (!apiKeyOnly || !["openai", "anthropic"].includes(provider ?? "")) ? modelSettings : undefined}
       agents={agents.data ?? []}
       sentence={connectionDefaultSummarySentence({ grantKind: ownership === "shared" ? "organization" : "user", authKind: auth === "none" ? "none" : "api_key", installChoice: allAgents ? "all" : "specific", installCount: agentIds.size })}
       capabilities={{ canCreateOrganizationGrant: canManageConnections, canSetCompanyInstall: canManageConnections }}
@@ -266,35 +279,35 @@ export function AiProviderSetup({
       installAgentIds={agentIds}
       setInstallAgentIds={setAgentIds}
       disabled={save.isPending}
-      notice={!canManageConnections ? ["Only a connection manager can share this credential with everyone or give every agent access."] : undefined}
+      notice={!canManageConnections ? [t("platform.permissionNotice")] : undefined}
     />
   ) : undefined;
   const cancel = () => reconnect || initialProvider ? onCancel() : setStep("provider");
-  if (!reconnect && accounts.isPending) return <p role="status">Loading connection permissions…</p>;
-  if (!reconnect && accounts.isError) return <p role="alert">Could not load connection permissions. <Button type="button" variant="ghost" onClick={() => void accounts.refetch()}>Retry</Button></p>;
+  if (!reconnect && accounts.isPending) return <p role="status">{t("provider.loadingPermissions")}</p>;
+  if (!reconnect && accounts.isError) return <p role="alert">{t("provider.permissionsError")} <Button type="button" variant="ghost" onClick={() => void accounts.refetch()}>{t("modelUi.retry")}</Button></p>;
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6" onSubmit={(event) => event.stopPropagation()}>
       <div className="space-y-2">
         <h2 className="text-xl font-semibold">
           {step === "provider"
-            ? "Connect a model provider"
-            : `${reconnect ? "Reconnect" : "Connect"} ${label}`}
+            ? t("provider.connectTitle")
+            : t(reconnect ? "provider.reconnectName" : "provider.connectName", { name: label })}
         </h2>
       </div>
-      {agents.isError && <p role="alert" className="text-sm text-destructive">Could not load agents. <Button type="button" variant="ghost" onClick={() => void agents.refetch()}>Retry</Button></p>}
+      {agents.isError && <p role="alert" className="text-sm text-destructive">{t("provider.agentsError")} <Button type="button" variant="ghost" onClick={() => void agents.refetch()}>{t("modelUi.retry")}</Button></p>}
       {step === "provider" ? (
         <>
-          {advancedOnly ? choices(true) : <>
+          {apiKeyOnly ? choices(false) : advancedOnly ? choices(true) : <>
           {choices(false)}
           <details>
             <summary className="cursor-pointer text-sm text-muted-foreground">
-              Advanced providers
+              {t("provider.advanced")}
             </summary>
             <div className="pt-4">{choices(true)}</div>
           </details>
           </>}
           <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
+            {t("modelUi.cancel")}
           </Button>
         </>
       ) : !advanced ? (
@@ -323,12 +336,14 @@ export function AiProviderSetup({
             save.mutate();
           }}
         >
+          {!apiKeyOnly && provider === "deepseek" && <div className="space-y-2 text-sm text-muted-foreground"><p>{t("aiSdk.endpoint")}: {DEEPSEEK_BASE_URL}</p><a className="underline underline-offset-4" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">{t("aiSdk.getKey")}</a></div>}
+          {apiKeyOnly && <p className="text-sm text-muted-foreground">{t(provider === "gateway" ? "platform.remoteOnly" : "platform.officialEndpoint", { platform: label })}</p>}
           {(provider === "gateway" || provider === "local") && (
             <>
               <label className="block space-y-2 text-xs text-muted-foreground">
-                Provider URL
+                {t("provider.url")}
                 <Input
-                  aria-label="Provider URL"
+                  aria-label={t("provider.url")}
                   placeholder={
                     provider === "local"
                       ? "http://localhost:11434/v1"
@@ -340,7 +355,7 @@ export function AiProviderSetup({
                 />
               </label>
               <label className="block space-y-2 text-xs text-muted-foreground">
-                API format
+                {t("provider.format")}
                 <Select
                   value={protocol}
                   onValueChange={(v) => {
@@ -350,18 +365,18 @@ export function AiProviderSetup({
                   }}
                   disabled={Boolean(reconnect) || Boolean(initialProtocol)}
                 >
-                  <SelectTrigger aria-label="API format" className="w-full">
+                  <SelectTrigger aria-label={t("provider.format")} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="responses">
-                      OpenAI Responses · Codex
+                      {apiKeyOnly ? "OpenAI Responses" : "OpenAI Responses · Codex"}
                     </SelectItem>
                     <SelectItem value="messages">
-                      Anthropic Messages · Claude
+                      {apiKeyOnly ? "Anthropic Messages" : "Anthropic Messages · Claude"}
                     </SelectItem>
                     <SelectItem value="chat">
-                      Chat Completions · OpenCode, Hermes
+                      {apiKeyOnly ? "Chat Completions" : "Chat Completions · OpenCode, Hermes"}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -379,15 +394,15 @@ export function AiProviderSetup({
               />
             </label>
           )}
-          {provider !== "openrouter" && (
+          {provider !== "openrouter" && provider !== "deepseek" && (!apiKeyOnly || provider === "gateway") && (
             <label className="block space-y-2 text-xs text-muted-foreground">
-              Authentication
+              {t("provider.authentication")}
               <Select
                 value={auth}
                 onValueChange={(v) => setAuth(v as typeof auth)}
                 disabled={Boolean(reconnect)}
               >
-                <SelectTrigger aria-label="Authentication" className="w-full">
+                <SelectTrigger aria-label={t("provider.authentication")} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -403,7 +418,7 @@ export function AiProviderSetup({
                           API key · x-api-key
                         </SelectItem>
                       )}
-                      <SelectItem value="none">No authentication</SelectItem>
+                      {!apiKeyOnly && <SelectItem value="none">No authentication</SelectItem>}
                     </>
                   )}
                 </SelectContent>
@@ -413,9 +428,9 @@ export function AiProviderSetup({
           {
             auth !== "none" && (
               <label className="block space-y-2 text-xs text-muted-foreground">
-                API key
+                {t("provider.apiKey")}
                 <Input
-                  aria-label="API key"
+                  aria-label={t("provider.apiKey")}
                   type="password"
                   autoComplete="new-password"
                   value={apiKey}
@@ -424,15 +439,14 @@ export function AiProviderSetup({
               </label>
             )
           }
-          {reconnect && <details><summary className="cursor-pointer text-sm text-muted-foreground">Model settings</summary>{modelSettings}</details>}
+          {reconnect && <details><summary className="cursor-pointer text-sm text-muted-foreground">{t("provider.modelSettings")}</summary>{modelSettings}</details>}
           <p className="text-xs text-muted-foreground">
-            Test the connection with your chosen model in the agent’s execution
-            environment after connecting.
+            {t("provider.testHint")}
           </p>
           {save.error && (
             <p role="alert" className="text-sm text-destructive">
               {save.error instanceof Error && save.error.name === "ZodError"
-                ? "Check the URL, API format, and authentication fields."
+                ? t("provider.validationError")
                 : save.error.message}
             </p>
           )}
@@ -444,7 +458,7 @@ export function AiProviderSetup({
               onClick={cancel}
               disabled={save.isPending}
             >
-              Back
+              {t("modelUi.back")}
             </Button>
             <Button
               type="submit"
@@ -455,10 +469,10 @@ export function AiProviderSetup({
               }
             >
               {save.isPending
-                ? "Connecting…"
+                ? t("provider.connecting")
                 : reconnect
-                  ? "Reconnect"
-                  : "Connect"}
+                  ? t("provider.reconnect")
+                  : t("provider.connect")}
             </Button>
           </div>
         </form>

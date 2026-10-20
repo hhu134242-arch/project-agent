@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { useConnectionModels } from "./ai-connections/useConnectionModels";
 import { agentHarnessType, agentRunner, type AgentRunnerChoice } from "@paperclipai/shared";
 import { adaptersApi } from "../api/adapters";
@@ -341,6 +342,7 @@ function ConfigSections({ order, className, children }: {
 /* ---- Form ---- */
 
 export function AgentConfigForm(props: AgentConfigFormProps) {
+  const { t } = useTranslation();
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
   const cards = props.sectionLayout === "cards";
@@ -471,6 +473,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   });
 
   // ---- Edit mode: overlay for dirty tracking ----
+  const [sdkConnectionValid, setSdkConnectionValid] = useState(false);
   const [overlay, setOverlay] = useState<AgentConfigOverlay>(emptyOverlay);
   const [environmentDraftDirty, setEnvironmentDraftDirty] = useState(false);
   const [environmentEditorKey, setEnvironmentEditorKey] = useState(0);
@@ -563,6 +566,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   const handleSave = useCallback(async () => {
     if (isCreate) return;
+    if ((overlay.adapterType ?? props.agent.adapterType) === "ai_sdk" && props.content !== "secrets" && !sdkConnectionValid) return;
     const flushedEnv = flushEnvironmentDraft();
     const nextOverlay = flushedEnv
       ? {
@@ -575,15 +579,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       : overlay;
     if (!isOverlayDirty(nextOverlay)) return;
     await props.onSave(buildAgentUpdatePatch(props.agent, nextOverlay));
-  }, [isCreate, isDirty, overlay, props]);
+  }, [isCreate, isDirty, overlay, props, sdkConnectionValid]);
 
   useEffect(() => {
     if (!isCreate) {
       props.onDirtyChange?.(isDirty);
-      props.onSaveActionChange?.(handleSave);
+      props.onSaveActionChange?.((overlay.adapterType ?? props.agent.adapterType) === "ai_sdk" && props.content !== "secrets" && !sdkConnectionValid ? null : handleSave);
       props.onCancelActionChange?.(handleCancel);
     }
-  }, [isCreate, isDirty, props.onDirtyChange, props.onSaveActionChange, props.onCancelActionChange, handleSave, handleCancel]);
+  }, [isCreate, isDirty, props.onDirtyChange, props.onSaveActionChange, props.onCancelActionChange, handleSave, handleCancel, sdkConnectionValid]);
 
   useEffect(() => {
     if (isCreate) return;
@@ -644,7 +648,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const showAdapterTestEnvironmentButton = !isGrokBotRunner && (props.showAdapterTestEnvironmentButton ?? true);
   const showInlineAdapterTestEnvironmentButton =
     showAdapterTestEnvironmentButton && !props.onTestActionChange && !props.compactTestFeedback;
-  const isLocal = !isExternalRunner && (adapterCaps.supportsInstructionsBundle || adapterCaps.supportsSkills || adapterCaps.supportsLocalAgentJwt);
+  const isLocal = adapterType !== "ai_sdk" && !isExternalRunner && (adapterCaps.supportsInstructionsBundle || adapterCaps.supportsSkills || adapterCaps.supportsLocalAgentJwt);
   
   // The legacy working directory is an absolute path on the host, so the
   // managed-sandbox-only policy hides it. A stored value stays untouched; it is
@@ -924,9 +928,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       : "Local";
 
   const modelProvider = adapterType === "opencode_local" && aiConnectionBindingSchema.safeParse(
-    (overlay.runtime.runtimeConfig as Record<string, unknown> | undefined)?.aiConnection ?? runtimeConfig.aiConnection,
+    eff("runtime", "runtimeConfig", runtimeConfig)?.aiConnection,
   ).data?.provider === "openrouter" ? "openrouter" : runnerProvider;
-  const connectionModels = useConnectionModels(isExternalRunner ? null : selectedCompanyId, isCreate ? undefined : aiConnectionBindingSchema.safeParse((overlay.runtime.runtimeConfig as Record<string, unknown> | undefined)?.aiConnection ?? runtimeConfig.aiConnection).data, aiRoutingHarness(adapterType, runnerProvider, eff("adapterConfig", "acpxAgent", config.acpxAgent)));
+  const connectionModels = useConnectionModels(isExternalRunner || adapterType === "ai_sdk" ? null : selectedCompanyId, isCreate ? undefined : aiConnectionBindingSchema.safeParse(eff("runtime", "runtimeConfig", runtimeConfig)?.aiConnection).data, aiRoutingHarness(adapterType, runnerProvider, eff("adapterConfig", "acpxAgent", config.acpxAgent)));
   // Fetch adapter models for the effective provider, including unsaved changes.
   const modelAdapterType = isRunnerHarness ? harnessType : adapterType;
   const modelQueryKey = selectedCompanyId
@@ -942,7 +946,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       environmentId: currentDefaultEnvironmentId || null,
       provider: modelProvider,
     }),
-    enabled: Boolean(selectedCompanyId) && !isExternalRunner && !connectionModels,
+    enabled: Boolean(selectedCompanyId) && adapterType !== "ai_sdk" && !isExternalRunner && !connectionModels,
   });
   const [refreshModelsError, setRefreshModelsError] = useState<string | null>(null);
   const [refreshingModels, setRefreshingModels] = useState(false);
@@ -1006,7 +1010,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const renderAdapterFields = (section: AdapterConfigSection) => (
     <>
       {adapterType === "claude_local" && <ClaudeLocalAdvancedFields {...adapterFieldProps} section={section} />}
-      <fieldsUiAdapter.ConfigFields {...adapterFieldProps} section={section} hideModel={isLocal} />
+      <fieldsUiAdapter.ConfigFields {...adapterFieldProps} section={section} hideModel={isLocal || (!isCreate && adapterType === "ai_sdk")} />
     </>
   );
   // Popover states
@@ -1031,6 +1035,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   const testEnvironment = useMutation({
     mutationFn: async () => {
+      if (adapterType === "ai_sdk" && !sdkConnectionValid) throw new Error(t("aiSdk.connectionRequired"));
       if (!selectedCompanyId) {
         throw new Error("Select an organization to test adapter environment");
       }
@@ -1106,7 +1111,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       const adapterConfig = buildAdapterConfigForTest(adapterConfigPatch);
       const agentId = isCreate ? undefined : props.agent.id;
       const aiConnection = isCreate ? undefined : aiRuntimeConnectionBindingSchema.safeParse(
-        (overlay.runtime.runtimeConfig as Record<string, unknown> | undefined)?.aiConnection ?? props.agent.runtimeConfig.aiConnection,
+        eff("runtime", "runtimeConfig", runtimeConfig)?.aiConnection,
       ).data;
       if (props.compactTestFeedback) {
         const providerAdapter = adapterType === "paperclip_runner"
@@ -1122,9 +1127,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   });
   const [testActionPending, setTestActionPending] = useState(false);
   const [testActionError, setTestActionError] = useState<string | null>(null);
-  const testActionLabel = "Test";
+  const testActionLabel = t("platform.test");
   const isSavePending = !isCreate && Boolean(props.isSaving);
-  const testEnvironmentDisabled = testActionPending || isSavePending || !selectedCompanyId;
+  const testEnvironmentDisabled = testActionPending || isSavePending || !selectedCompanyId || (adapterType === "ai_sdk" && !sdkConnectionValid);
 
   // Drop a stale Test result when the adapter type or the effective environment
   // changes. A held result would keep the login affordance visible for a target
@@ -1160,11 +1165,12 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     });
   };
 
+  const sdkSelectionKey = adapterType === "ai_sdk" ? JSON.stringify([eff("runtime", "runtimeConfig", runtimeConfig)?.aiConnection, eff("adapterConfig", "model", config.model)]) : null;
   useEffect(() => {
     resetTestEnvironmentRef.current();
     setTestActionError(null);
     clearClaudeLoginClaimRef.current();
-  }, [adapterType, runner, effectiveLoginEnvironmentId, runner === "auto" ? runnerAvailability?.defaultRunner : undefined]);
+  }, [adapterType, runner, effectiveLoginEnvironmentId, runner === "auto" ? runnerAvailability?.defaultRunner : undefined, sdkSelectionKey]);
 
   // Show the login affordance only for a current sandbox adapter that declares a
   // login capability, and whose most recent Test result carries the canonical
@@ -1193,7 +1199,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     environmentCapabilities?.sandboxProviders?.[effectiveLoginProvider]?.supportsLoginPty === true;
   const loginNeedsPty = adapterCaps.login != null;
   const showAdapterLogin =
-    (isCreate || !((overlay.runtime.runtimeConfig as Record<string, unknown> | undefined)?.aiConnection ?? runtimeConfig.aiConnection)) &&
+    (isCreate || !(eff("runtime", "runtimeConfig", runtimeConfig)?.aiConnection)) &&
     adapterSupportsSandboxLogin &&
     effectiveLoginEnvironment?.driver === "sandbox" &&
     Boolean(effectiveLoginEnvironmentId) &&
@@ -1428,9 +1434,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         {isDirty && !props.hideInlineSave && (
           <div className="sticky top-0 z-10 flex items-center justify-end border-b border-primary/20 bg-background/90 px-4 py-2 backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">Unsaved changes</span>
-              <Button size="sm" onClick={handleSave} disabled={props.isSaving}>
-                {props.isSaving ? "Saving..." : "Save"}
+              <span className="text-xs text-muted-foreground">{t("platform.unsaved")}</span>
+              <Button size="sm" onClick={handleSave} disabled={props.isSaving || (adapterType === "ai_sdk" && props.content !== "secrets" && !sdkConnectionValid)}>
+                {t(props.isSaving ? "platform.saving" : "platform.save")}
               </Button>
             </div>
           </div>
@@ -1477,13 +1483,13 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       {isDirty && !props.hideInlineSave && (
         <div className="sticky top-0 z-10 flex items-center justify-end px-4 py-2 bg-background/90 backdrop-blur-sm border-b border-primary/20">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Unsaved changes</span>
+            <span className="text-xs text-muted-foreground">{t("platform.unsaved")}</span>
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={!isCreate && props.isSaving}
+              disabled={!isCreate && (props.isSaving || (adapterType === "ai_sdk" && !sdkConnectionValid))}
             >
-              {!isCreate && props.isSaving ? "Saving..." : "Save"}
+              {t(!isCreate && props.isSaving ? "platform.saving" : "platform.save")}
             </Button>
           </div>
         </div>
@@ -1721,9 +1727,12 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
           )}
 
           {!isExternalRunner && !isCreate && selectedCompanyId && <AiConnectionField companyId={selectedCompanyId} agentId={props.agent.id} agentName={props.agent.name} adapterType={aiRoutingHarness(adapterType, eff("adapterConfig", "provider", config.provider), eff("adapterConfig", "acpxAgent", config.acpxAgent))}
-            routerAdapterType={adapterType} value={aiRuntimeConnectionBindingSchema.safeParse((overlay.runtime.runtimeConfig as Record<string, unknown> | undefined)?.aiConnection ?? runtimeConfig.aiConnection).data}
+            routerAdapterType={adapterType} value={aiRuntimeConnectionBindingSchema.safeParse(eff("runtime", "runtimeConfig", runtimeConfig)?.aiConnection).data}
             model={String(eff("adapterConfig", "model", config.model) ?? "")} environmentId={currentDefaultEnvironmentId || undefined} legacy
-            onChange={binding => mark("runtime", "runtimeConfig", { ...runtimeConfig, aiConnection: binding })} />}
+            onChange={binding => mark("runtime", "runtimeConfig", { ...eff("runtime", "runtimeConfig", runtimeConfig), aiConnection: binding })}
+            onClear={() => { mark("runtime", "runtimeConfig", { ...eff("runtime", "runtimeConfig", runtimeConfig), aiConnection: null }); setSdkConnectionValid(false); }}
+            onModelChange={model => mark("adapterConfig", "model", model)}
+            onValidityChange={setSdkConnectionValid} />}
 
           {showInlineAdapterTestEnvironmentFeedback && !props.compactTestFeedback && (testActionError || testEnvironment.error) && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">

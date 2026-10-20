@@ -1,0 +1,14 @@
+{
+  "runtimeCheck.deepseek_model_ready": "The selected DeepSeek model responded successfully. This test uses a small billable API request.",
+  "runtimeCheck.ai_sdk_tools_scope": "This adapter supports Paperclip task and authorized MCP tools. Shell, local file editing and remote execution are unavailable.",
+  "runtimeCheck.ai_sdk_configuration": "Select an authorized API platform account and an exact model ID, with local execution and standard trust.",
+  "runtimeCheck.deepseek_model_probe_failed": "The selected DeepSeek model could not be reached. Check the API key, model access, balance and network.",
+  "runtimeCheck.status.pass": "Passed",
+  "runtimeCheck.status.warn": "Warnings",
+  "runtimeCheck.status.fail": "Failed",
+  "runtimeCheck.level.info": "info",
+  "runtimeCheck.level.warn": "warn",
+  "runtimeCheck.level.error": "error",
+  "runtimeCheck.ai_sdk_model_ready": "The selected API model responded successfully. This test uses a small billable API request.",
+  "runtimeCheck.ai_sdk_model_probe_failed": "The selected API model could not be reached. Check the API key, model access, balance and network."
+}

@@ -52,7 +52,7 @@ export function appConnectionSourceSlug(connection: ToolConnection | null | unde
   if (!connection) return null;
   if (connection.connectionPurpose === "ai") {
     const metadata = aiConnectionMetadataSchema.safeParse(connection.config?.ai);
-    if (metadata.success) return aiConnectionCatalogSlug(metadata.data.provider, metadata.data.routing);
+    if (metadata.success) return aiConnectionCatalogSlug(metadata.data.provider, metadata.data.routing, metadata.data.vendorPresetId);
   }
   const router = aiConnectionRouterPluginKey(connection);
   if (router) return aiConnectionRouterSlug(router);

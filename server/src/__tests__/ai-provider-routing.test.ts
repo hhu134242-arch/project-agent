@@ -3,10 +3,46 @@ import {
   aiProviderRoutingSchema,
   createAiConnectionSchema,
   isAiConnectionCompatible,
+  aiConnectionMetadataSchema,
+  aiConnectionCatalogSlug,
+  deepSeekRouting,
 } from "@paperclipai/shared";
 import { managedProviderRouting } from "../services/ai-provider-routing.js";
 
 describe("provider routing", () => {
+  it("binds the DeepSeek product identity to its official endpoint and keeps SDK selection explicit", () => {
+    const routing = deepSeekRouting();
+    const metadata = { provider: "openai", method: "api_key", vendorPresetId: "deepseek", routing } as const;
+    expect(aiConnectionMetadataSchema.safeParse(metadata).success).toBe(true);
+    expect(isAiConnectionCompatible(metadata, "ai_sdk", "custom-deepseek-model")).toBe(true);
+    expect(isAiConnectionCompatible({ ...metadata, vendorPresetId: undefined }, "ai_sdk")).toBe(true);
+    expect(isAiConnectionCompatible({ provider: "openai", method: "api_key", mode: "responsible_user" }, "ai_sdk")).toBe(false);
+    expect(aiConnectionCatalogSlug("openai", routing, "deepseek")).toBe("deepseek");
+    const projected = managedProviderRouting(routing, "ai_sdk", "selected-fixture-secret", "custom-deepseek-model");
+    expect(projected).toMatchObject({ env: { PAPERCLIP_AI_PROVIDER_KEY: "selected-fixture-secret" } });
+    for (const replacement of ["https://api.deepseek.com.evil.example", "https://api.deepseek.com/other", "https://gateway.example"]) {
+      const changed = { ...metadata, routing: { ...routing, baseUrl: replacement } };
+      expect(aiConnectionMetadataSchema.safeParse(changed).success).toBe(false);
+      expect(createAiConnectionSchema.safeParse({ ...changed, name: "DeepSeek", ownership: "personal", apiKey: "fixture" }).success).toBe(false);
+      expect(isAiConnectionCompatible(changed, "ai_sdk")).toBe(false);
+      expect(aiConnectionCatalogSlug("openai", changed.routing, "deepseek")).not.toBe("deepseek");
+    }
+  });
+  it("supports explicit API platform accounts and remote compatible protocols only", () => {
+    for (const provider of ["openai", "anthropic", "openrouter"] as const) {
+      expect(isAiConnectionCompatible({ provider, method: "api_key" }, "ai_sdk")).toBe(true);
+      expect(isAiConnectionCompatible({ provider, method: "subscription" }, "ai_sdk")).toBe(false);
+    }
+    for (const protocol of ["chat", "responses", "messages"] as const) {
+      const provider = protocol === "messages" ? "anthropic" : "openai";
+      const routing = aiProviderRoutingSchema.parse({ kind: "gateway", protocol, baseUrl: "https://gateway.example/v1" });
+      expect(isAiConnectionCompatible({ provider, method: "api_key", routing }, "ai_sdk")).toBe(true);
+      for (const baseUrl of ["http://localhost:11434/v1", "https://127.0.0.1/v1", "https://internal.local/v1", "https://[::1]/v1"]) {
+        expect(isAiConnectionCompatible({ provider, method: "api_key", routing: { ...routing, baseUrl } }, "ai_sdk")).toBe(false);
+      }
+      expect(isAiConnectionCompatible({ provider, method: "api_key", routing: { ...routing, kind: "local" } }, "ai_sdk")).toBe(false);
+    }
+  });
   it.each([
     "https://user:secret@gateway.example/v1",
     "https://gateway.example/v1?key=secret",

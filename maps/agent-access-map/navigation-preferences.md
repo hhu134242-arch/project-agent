@@ -61,6 +61,22 @@ own policy and access review.
 Gaps: Catalog metadata says board_or_agent, but requireBoardUserId rejects agents.
 Collapse is in-memory; global collapse is disabled.
 
+## `language`
+
+Review: `baseline`.
+
+API: `not-applicable` — presentation-only browser preference; no shared company or server setting changes.
+
+Agent access: `not-applicable` — the human selects the language in the browser. This does not grant access to resources or modify agent prompts.
+
+Policy: Browser-local storage is partitioned by user, independent of company; only published en/zh-CN resources are loaded. Data formats retain their business currency and time-zone semantics.
+
+Evidence: `source-only` — [language preferences](../../ui/src/i18n/preferences.ts) and [preference context](../../ui/src/context/LanguagePreferenceContext.tsx), current working change.
+
+Verification: `not-run` — live browser journey; [component switching](../../ui/src/i18n/language-switching.test.tsx) and [account/tab isolation](../../ui/src/i18n/preferences.test.ts) exercise isolated UI behavior. Separately verify reload, unsaved drafts and browser-language fallback in the live UI.
+
+Gaps: Cross-device preference synchronization and additional published languages are outside this browser-local capability.
+
 ## `profile`
 
 Review: `baseline`.

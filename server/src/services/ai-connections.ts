@@ -540,6 +540,9 @@ export function aiConnectionService(db: Db) {
     attemptStartedAt = new Date(),
   ) {
     const routing = "routing" in input ? input.routing : undefined;
+    const vendorPresetId = "vendorPresetId" in input ? input.vendorPresetId : undefined;
+    // Internal callers share the same trusted brand/endpoint contract as routes.
+    aiConnectionMetadataSchema.parse({ provider: input.provider, method: input.method, routing, vendorPresetId });
     if (!(await membership(companyId, userId)))
       throw forbidden("An active company member must own this connection");
     const reconnect = input.connectionId
@@ -564,6 +567,8 @@ export function aiConnectionService(db: Db) {
       throw unprocessable("Reconnect cannot change providers");
     if (reconnect && !isDeepStrictEqual((reconnect.connection.config.ai as AiConnectionMetadata).routing, routing))
       throw unprocessable("Reconnect must retain this connection’s routing. Create another connection to change its destination.");
+    if (reconnect && (reconnect.connection.config.ai as AiConnectionMetadata).vendorPresetId !== vendorPresetId)
+      throw unprocessable("Reconnect must retain the model service identity");
     if (
       reconnect &&
       ((reconnect.connection.config.ai as AiConnectionMetadata).method !==
@@ -697,7 +702,7 @@ export function aiConnectionService(db: Db) {
         if (targets.length !== new Set(input.agentIds).size)
           throw forbidden("Agent does not belong to this company");
       }
-      const source = aiConnectionCatalogSlug(input.provider, routing);
+      const source = aiConnectionCatalogSlug(input.provider, routing, vendorPresetId);
       const providerName = getAppStoreDefinition(source)?.name ?? AI_CONNECTION_CAPABILITIES[input.provider].name;
       const key = `app-gallery:${source}`;
       await tx
@@ -758,7 +763,7 @@ export function aiConnectionService(db: Db) {
             healthStatus: "ok",
             config: {
               sourceTemplateKey: source,
-              ai: { provider: input.provider, method: input.method, ...(routing ? { routing } : {}) },
+              ai: { provider: input.provider, method: input.method, ...(routing ? { routing } : {}), ...(vendorPresetId ? { vendorPresetId } : {}) },
               aiIsolatedSubscription: input.method === "subscription" && input.provider !== "anthropic",
             },
             createdByUserId: userId,

@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import {
   CircleCheck,
   CircleAlert,
@@ -61,6 +62,7 @@ export function RuntimeTestCard({
   disabled?: boolean;
   variant?: "connection" | "prerequisites";
 }) {
+  const { t } = useTranslation();
   const missingRuntime = state === "fail"
     ? result?.checks.find(check => check.code === "acpx_runtime_package_missing")
     : undefined;
@@ -77,7 +79,7 @@ export function RuntimeTestCard({
           : Play;
   return (
     <section
-      aria-label="Runtime test"
+      aria-label={t("runtimeTest.label")}
       className="rounded-lg border border-border bg-card"
     >
       <div className="flex items-start gap-3 p-4 sm:items-center">
@@ -105,9 +107,9 @@ export function RuntimeTestCard({
             aria-atomic="true"
             className="min-w-0 space-y-1"
           >
-            <h3 className="text-sm font-medium">{content.title}</h3>
+            <h3 className="text-sm font-medium">{missingRuntime ? content.title : t(`runtimeTest.${variant}.${state}.title`, { defaultValue: content.title })}</h3>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              {state === "fail" && error ? error : content.description}
+              {state === "fail" && error ? error : missingRuntime ? content.description : t(`runtimeTest.${variant}.${state}.description`, { defaultValue: content.description })}
             </p>
           </div>
           <Button
@@ -118,7 +120,7 @@ export function RuntimeTestCard({
             disabled={disabled || state === "running"}
             onClick={onTest}
           >
-            {content.action}
+            {t(`runtimeTest.${variant}.${state}.action`, { defaultValue: content.action })}
           </Button>
         </div>
       </div>
@@ -132,7 +134,7 @@ export function RuntimeTestCard({
               aria-hidden="true"
               className="size-3 transition-transform group-open:rotate-90"
             />
-            Test details
+            {t("runtimeTest.details")}
           </summary>
           <ul className="space-y-3 px-4 pb-4">
             {result.checks.map((check) => (
@@ -152,7 +154,7 @@ export function RuntimeTestCard({
                   />
                 )}
                 <div className="min-w-0 space-y-1">
-                  <p className="break-words text-foreground">{check.message}</p>
+                  <p className="break-words text-foreground">{t(`runtimeCheck.${check.code}`, { defaultValue: check.message })}</p>
                   {check.detail && (
                     <p className="break-all text-muted-foreground">
                       {check.detail}

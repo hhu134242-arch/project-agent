@@ -109,6 +109,11 @@ export async function prepareHeartbeatExecutionConfiguration(db: Db, input: Hear
   onFailureSecretsResolved(() => []);
   const aiBinding = preconfiguredHome ? undefined : input.config.aiBinding;
   const { trustPreset, useIsolatedTaskDirectory, explicitTaskDirectory } = input.policy;
+  if (agent.adapterType === "ai_sdk" && (!aiBinding || trustPreset.kind !== "standard" || selectedEnvironmentForConfig?.driver !== "local")) {
+    throw new ConfigurationIncompleteFailure("API models require a managed platform account and a local execution environment with standard trust", {
+      configurationIncomplete: { reason: "ai_sdk_execution_boundary", actionUrl: `/agents/${agent.id}/runtime` },
+    });
+  }
   const { secretsSvc, companySkills, appendRunEvent, finalizeAiConnectionBusyDeferral } = input.services;
   let managedAiRuntime: ManagedAiRuntime | undefined;
   const mergedConfig = {

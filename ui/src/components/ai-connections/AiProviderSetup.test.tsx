@@ -138,3 +138,57 @@ it.each(["google", "openai", "anthropic", "xai"] as const)("allows an ordinary m
     await act(async () => root.unmount()); client.clear();
   }
 });
+
+it("saves DeepSeek with its official endpoint and branded metadata without making it the OpenAI default", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  client.setQueryData(["ai-connections", "company", undefined], { canManageConnections: true, connections: [] });
+  client.setQueryData(["agents", "company", "provider-access"], []);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const onComplete = vi.fn();
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><AiProviderSetup companyId="company" initialProvider="deepseek" onCancel={() => {}} onComplete={onComplete} /></QueryClientProvider>));
+    expect(container.textContent).toContain("https://api.deepseek.com");
+    expect(container.querySelector('input[aria-label="Provider URL"]')).toBeNull();
+    expect(container.textContent).not.toContain("ChatGPT subscription");
+    const input = container.querySelector('input[aria-label="API key"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "fixture-deepseek-key");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(aiConnectionsApi.create).toHaveBeenCalledWith("company", expect.objectContaining({
+      vendorPresetId: "deepseek", provider: "openai", method: "api_key", apiKey: "fixture-deepseek-key",
+      routing: expect.objectContaining({ kind: "gateway", protocol: "chat", auth: "bearer", baseUrl: "https://api.deepseek.com" }),
+    }));
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ mode: "shared", provider: "openai", connectionId: "connection", grantId: "grant" }));
+    expect((input as HTMLInputElement).value).toBe("");
+  } finally {
+    await act(async () => root.unmount()); client.clear();
+  }
+});
+
+it.each(["openai", "anthropic"] as const)("connects %s in API-only mode without exposing subscription or protocol choices", async provider => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  client.setQueryData(["ai-connections", "company", undefined], { canManageConnections: true, connections: [] });
+  client.setQueryData(["agents", "company", "provider-access"], []);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const onComplete = vi.fn();
+  vi.mocked(aiConnectionsApi.create).mockClear();
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><AiProviderSetup companyId="company" initialProvider={provider} apiKeyOnly onCancel={() => {}} onComplete={onComplete} /></QueryClientProvider>));
+    expect(container.textContent).not.toContain("Existing credential flow");
+    expect(container.querySelector('[aria-label="API format"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Provider URL"]')).toBeNull();
+    const input = container.querySelector('input[aria-label="API key"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "fixture-api-key");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(aiConnectionsApi.create).toHaveBeenCalledWith("company", expect.objectContaining({ provider, method: "api_key", apiKey: "fixture-api-key", routing: undefined }));
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ provider, method: "api_key", mode: "shared" }));
+    expect((input as HTMLInputElement).value).toBe("");
+  } finally { await act(async () => root.unmount()); client.clear(); }
+});

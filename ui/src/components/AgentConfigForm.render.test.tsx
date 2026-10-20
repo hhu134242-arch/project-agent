@@ -930,6 +930,45 @@ describe("AgentConfigForm environment selector", () => {
     expect(mockAgentsApi.testEnvironment).not.toHaveBeenCalled();
   });
 
+  it("clears API platform drafts atomically, blocks saving without an account, and restores the saved selection on discard", async () => {
+    const { deepSeekRouting } = await import("@paperclipai/shared");
+    const deepseek = { id: "00000000-0000-4000-8000-000000000051", grantId: "00000000-0000-4000-8000-000000000052", companyId: "company-1", provider: "openai", method: "api_key", vendorPresetId: "deepseek", routing: deepSeekRouting(), ownership: "shared", status: "connected", name: "DeepSeek", isDefault: false } as const;
+    const anthropic = { ...deepseek, id: "00000000-0000-4000-8000-000000000061", grantId: "00000000-0000-4000-8000-000000000062", provider: "anthropic", vendorPresetId: undefined, routing: undefined, name: "Anthropic" } as const;
+    const binding = { mode: "shared", provider: "openai", method: "api_key", connectionId: deepseek.id, grantId: deepseek.grantId } as const;
+    const accountList = vi.spyOn(aiConnectionsApi, "list").mockResolvedValue({ currentUserId: "you", canManageConnections: true, connections: [deepseek, anthropic] });
+    let save: (() => void) | null = null;
+    let discard: (() => void) | null = null;
+    try {
+      const result = await renderForm([], { adapterType: "ai_sdk", adapterConfig: { model: "saved-deepseek-model" }, runtimeConfig: { aiConnection: binding } }, {
+        onSaveActionChange: action => { save = action; }, onCancelActionChange: action => { discard = action; },
+      });
+      roots.push(result.root);
+      const choose = async (label: string, value: string) => {
+        const select = result.container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;
+        await act(async () => { select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); });
+        await flushReact();
+      };
+      await flushUntil(() => save !== null);
+      await choose("API platform", "anthropic");
+      expect(save).toBeNull();
+      expect(result.container.querySelector<HTMLInputElement>('input[aria-label="Model"]')!.value).toBe("");
+      expect(result.container.querySelector<HTMLSelectElement>('select[aria-label="API account"]')!.value).toBe("");
+      await act(async () => discard?.()); await flushReact();
+      expect(result.container.querySelector<HTMLSelectElement>('select[aria-label="API platform"]')!.value).toBe("deepseek");
+      expect(result.container.querySelector<HTMLInputElement>('input[aria-label="Model"]')!.value).toBe("saved-deepseek-model");
+      await choose("API platform", "anthropic");
+      await choose("API account", `${anthropic.id}:${anthropic.grantId}`);
+      expect(save).toBeNull();
+      await act(async () => setInputValue(result.container.querySelector<HTMLInputElement>('input[aria-label="Model"]')!, "exact-anthropic-model"));
+      await flushReact();
+      await act(async () => { await save?.(); });
+      expect(result.onSave).toHaveBeenCalledWith(expect.objectContaining({
+        adapterConfig: expect.objectContaining({ model: "exact-anthropic-model" }),
+        runtimeConfig: expect.objectContaining({ aiConnection: expect.objectContaining({ connectionId: anthropic.id, provider: "anthropic" }) }),
+      }));
+    } finally { accountList.mockRestore(); }
+  });
+
   it("promotes environment drafts through the page Save action and discards them through the page Discard action", async () => {
     const dirty = vi.fn();
     let save: (() => void) | null = null;

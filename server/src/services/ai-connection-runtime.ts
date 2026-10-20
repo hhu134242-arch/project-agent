@@ -203,7 +203,7 @@ export function managedAiSessionFingerprintConfig(
   }
   const managed = config.managedAiConnection as Record<string, unknown> | undefined;
   if (managed?.sessionIdentity) {
-    for (const key of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY", "OPENROUTER_API_KEY", "XAI_API_KEY", "GROK_API_KEY", "OPENCODE_AUTH_JSON", "OPENCODE_CONFIG_CONTENT"]) {
+    for (const key of ["PAPERCLIP_AI_PROVIDER_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY", "OPENROUTER_API_KEY", "XAI_API_KEY", "GROK_API_KEY", "OPENCODE_AUTH_JSON", "OPENCODE_CONFIG_CONTENT"]) {
       if (env[key]) env[key] = "<managed-ai-credential>";
     }
   }
@@ -245,7 +245,8 @@ export async function prepareManagedAiRuntime(
       );
   }
   const harness = aiRoutingHarness(input.adapterType, input.config.provider, input.config.acpxAgent);
-  await assertManagedAiProjectAuth(input.config, harness === "claude_local" ? "anthropic" : harness === "codex_local" ? "openai" : input.binding.provider);
+  // The SDK never reads CLI project configuration or host authentication.
+  if (harness !== "ai_sdk") await assertManagedAiProjectAuth(input.config, harness === "claude_local" ? "anthropic" : harness === "codex_local" ? "openai" : input.binding.provider);
   const service = aiConnectionService(db);
   let selection = await service.select({
     ...input,
@@ -272,7 +273,8 @@ export async function prepareManagedAiRuntime(
         "The selected default changed. Retry this execution.",
       );
     const credentialRef = selection.grant.credentialSecretRefs.find((ref) => ref.configPath === "ai.credential");
-    const routing = aiConnectionMetadataSchema.parse(selection.connection.config.ai).routing;
+    const metadata = aiConnectionMetadataSchema.parse(selection.connection.config.ai);
+    const routing = metadata.routing;
     const noAuth = routing?.auth === "none";
     if (!noAuth && !credentialRef) throw unprocessable("The selected AI credential is unavailable");
     const readFreshness = async () => {
@@ -324,10 +326,11 @@ export async function prepareManagedAiRuntime(
         'cli_auth_credentials_store = "file"\n',
         { mode: 0o600 },
       );
-    if (!routing && subscriptionFile) await writeFile(authFile, value, { mode: 0o600 });
+    if (harness === "ai_sdk") env.PAPERCLIP_AI_PROVIDER_KEY = value;
+    else if (!routing && subscriptionFile) await writeFile(authFile, value, { mode: 0o600 });
     else if (!routing) env[capability.envKey] = value;
     if (
-      !routing && input.binding.provider === "openai" &&
+      harness !== "ai_sdk" && !routing && input.binding.provider === "openai" &&
       selection.attribution.method === "api_key"
     ) {
       env.CODEX_API_KEY = value;
@@ -335,7 +338,7 @@ export async function prepareManagedAiRuntime(
         mode: 0o600,
       });
     }
-    if (!routing && input.binding.provider === "openrouter") {
+    if (harness !== "ai_sdk" && !routing && input.binding.provider === "openrouter") {
       env.OPENCODE_CONFIG_CONTENT = JSON.stringify({
         provider: { openrouter: { options: { apiKey: value, headers: OPENROUTER_ATTRIBUTION_HEADERS } } },
       });
@@ -386,7 +389,12 @@ export async function prepareManagedAiRuntime(
       config: {
         ...input.config,
         ...projected?.config,
-        ...(routing ? { managedAiRouting: routing } : {}),
+        ...(harness === "ai_sdk" ? {
+          // Override task/user config with the selected vault account's metadata.
+          managedAiProvider: metadata.provider,
+          managedAiVendor: metadata.vendorPresetId,
+        } : {}),
+        managedAiRouting: routing,
         env,
         managedAiConnection: { ...attribution, identity, sessionIdentity },
       },

@@ -1,3 +1,4 @@
+import { aiSdkUIAdapter } from "./ai-sdk";
 import type { UIAdapterModule } from "./types";
 import { claudeLocalUIAdapter } from "./claude-local";
 import { codexLocalUIAdapter } from "./codex-local";
@@ -54,6 +55,7 @@ setDynamicParserResultNotifier(notifyAdapterChange);
 
 function registerBuiltInUIAdapters() {
   for (const adapter of [
+    aiSdkUIAdapter,
     claudeLocalUIAdapter,
     codexLocalUIAdapter,
     paperclipRunnerUIAdapter,

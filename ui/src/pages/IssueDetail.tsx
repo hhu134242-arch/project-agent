@@ -1,3 +1,4 @@
+import { t, useTranslation } from "@/i18n";
 import { grokBotApi } from "@/api/grokBot";
 import { WorkspaceBaseRefRecoveryProvider } from "../components/WorkspaceBaseRefRecovery";
 import { isLockedIssueStub, LockedIssueChip } from "@/components/LockedIssueChip";
@@ -835,7 +836,7 @@ function IssueAttributionByline({
     <TooltipProvider>
       <AvatarGroup
         className="-space-x-1.5"
-        aria-label="Task people"
+        aria-label={t("tasks.detail.people")}
         data-testid="issue-attribution-avatar-stack"
       >
         {assignee ? (
@@ -1129,7 +1130,7 @@ function InboxMobileToolbar({
             navigate(backHref);
           }
         }}
-        aria-label="Back to inbox"
+        aria-label={t("tasks.detail.backInbox")}
       >
         <ArrowLeft className="h-5 w-5" />
       </Button>
@@ -1141,7 +1142,7 @@ function InboxMobileToolbar({
             size="icon-sm"
             onClick={onArchive}
             disabled={archivePending}
-            aria-label="Archive from inbox"
+            aria-label={t("tasks.detail.archive")}
           >
             <Archive className="h-5 w-5" />
           </Button>
@@ -1149,7 +1150,7 @@ function InboxMobileToolbar({
 
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More actions">
+            <Button variant="ghost" size="icon-sm" aria-label={t("tasks.detail.more")}>
               <MoreVertical className="h-5 w-5" />
             </Button>
           </PopoverTrigger>
@@ -1162,7 +1163,7 @@ function InboxMobileToolbar({
               }}
             >
               <Copy className="h-3 w-3" />
-              Copy as markdown
+              {t("tasks.detail.copyAsMarkdown")}
             </button>
             <button
               className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
@@ -1172,7 +1173,7 @@ function InboxMobileToolbar({
               }}
             >
               <SlidersHorizontal className="h-3 w-3" />
-              Properties
+              {t("tasks.detail.properties")}
             </button>
             {issueIdProp && (
               <button
@@ -1183,7 +1184,7 @@ function InboxMobileToolbar({
                 }}
               >
                 <EyeOff className="h-3 w-3" />
-                Hide this task
+                {t("tasks.detail.hide")}
               </button>
             )}
           </PopoverContent>
@@ -2869,7 +2870,7 @@ function IssueDetailActivityTab({
           ) : (
             <div className="space-y-1 text-xs text-muted-foreground tabular-nums">
               <div className="flex flex-wrap gap-3">
-                <span className="font-medium text-foreground">This task</span>
+                <span className="font-medium text-foreground">{t("tasks.detail.thisTask")}</span>
                 {issueCostSummary.hasCost ? (
                   <span className="font-medium text-foreground">
                     ${issueCostSummary.cost.toFixed(4)}
@@ -2892,7 +2893,7 @@ function IssueDetailActivityTab({
                 {!issueCostSummary.hasCost &&
                 !issueCostSummary.hasTokens &&
                 !issueCostSummary.hasRuntime ? (
-                  <span>No direct cost data.</span>
+                  <span>{t("tasks.detail.noCost")}</span>
                 ) : null}
               </div>
               {hasIssueTreeCost && issueTreeCostSummary ? (
@@ -3059,6 +3060,7 @@ export function IssueDetail({ tasksTab }: { tasksTab?: TaskSidePanelProps["tasks
 export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskSidePanelProps["tasksTab"]; conversation?: {
   agent: Agent; issue: Issue | null; ensureIssue: () => Promise<Issue>;
 } }) {
+  const { i18n } = useTranslation();
   const { issueId: routeIssueId, companyPrefix } = useParams<{ issueId: string; companyPrefix: string }>();
   const issueId = conversation ? conversation.issue?.id : routeIssueId;
   const [draftWorkMode, setDraftWorkMode] = useState<IssueWorkMode>("standard");
@@ -3408,12 +3410,20 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     }
   }, [hasLiveRuns, locallyQueuedCommentRunIds.size]);
   const sourceBreadcrumb = useMemo(
-    () =>
-      readIssueDetailBreadcrumb(issueId, location.state, location.search) ?? {
-        label: "Tasks",
-        href: "/issues",
-      },
-    [issueId, location.state, location.search],
+    () => {
+      const breadcrumb = readIssueDetailBreadcrumb(issueId, location.state, location.search);
+      if (!breadcrumb) return { label: t("tasks.title"), href: "/issues" };
+      // Stored navigation state may have been created in another language.
+      // Translate known collection routes; project/user titles stay original.
+      if (/^\/(?:[^/?]+\/)?issues(?:\/all)?(?:[?#]|$)/.test(breadcrumb.href)) {
+        return { ...breadcrumb, label: t("tasks.title") };
+      }
+      if (/^\/(?:[^/?]+\/)?inbox(?:[/?#]|$)/.test(breadcrumb.href)) {
+        return { ...breadcrumb, label: t("navigation.inbox") };
+      }
+      return breadcrumb;
+    },
+    [issueId, location.state, location.search, i18n.resolvedLanguage],
   );
 
   const {
@@ -4125,7 +4135,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
 
       try {
         await issuesApi.unarchiveFromInbox(id);
-        pushToast({ title: "Task restored to inbox", tone: "success" });
+        pushToast({ title: t("tasks.detail.restored"), tone: "success" });
       } catch (error) {
         if (companyId) {
           beginLocalInboxArchive(companyId, id);
@@ -4133,7 +4143,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           boundLocalInboxArchive(companyId, id);
         }
         pushToast({
-          title: "Undo failed",
+          title: t("tasks.detail.undoError"),
           body:
             error instanceof Error
               ? error.message
@@ -4301,7 +4311,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
         );
       }
       pushToast({
-        title: "Task update failed",
+        title: t("tasks.detail.updateError"),
         body:
           err instanceof Error ? err.message : "Unable to save task changes",
         tone: "error",
@@ -4336,7 +4346,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onError: (err) => {
       pushToast({
-        title: "Recovery resolution failed",
+        title: t("tasks.detail.recoveryError"),
         body:
           err instanceof Error
             ? err.message
@@ -4604,7 +4614,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onError: (err) => {
       pushToast({
-        title: "Task update failed",
+        title: t("tasks.detail.updateError"),
         body:
           err instanceof Error
             ? err.message
@@ -4695,13 +4705,13 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       invalidateIssueRunState();
       invalidateIssueCollections();
       pushToast({
-        title: "Monitor check queued",
+        title: t("tasks.detail.monitorQueued"),
         tone: "success",
       });
     },
     onError: (err) => {
       pushToast({
-        title: "Monitor check failed",
+        title: t("tasks.detail.monitorError"),
         body:
           err instanceof Error
             ? err.message
@@ -4842,7 +4852,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           return;
         } catch (err) {
           pushToast({
-            title: "Cancel failed",
+            title: t("tasks.detail.cancelError"),
             body:
               err instanceof Error
                 ? err.message
@@ -4988,7 +4998,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onError: (err) => {
       pushToast({
-        title: "Accept failed",
+        title: t("tasks.detail.acceptError"),
         body:
           err instanceof Error
             ? err.message
@@ -5019,7 +5029,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onError: (err) => {
       pushToast({
-        title: "Reject failed",
+        title: t("tasks.detail.rejectError"),
         body:
           err instanceof Error
             ? err.message
@@ -5041,13 +5051,13 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       invalidateIssueDetail();
       invalidateIssueCollections();
       pushToast({
-        title: "Answers submitted",
+        title: t("tasks.detail.answersSent"),
         tone: "success",
       });
     },
     onError: (err) => {
       pushToast({
-        title: "Submit failed",
+        title: t("tasks.detail.submitError"),
         body: err instanceof Error ? err.message : "Unable to submit answers",
         tone: "error",
       });
@@ -5085,7 +5095,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onError: (err) => {
       pushToast({
-        title: "Apply failed",
+        title: t("tasks.detail.applyError"),
         body:
           err instanceof Error ? err.message : "Unable to apply the verdicts",
         tone: "error",
@@ -5104,13 +5114,13 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       invalidateIssueDetail();
       invalidateIssueCollections();
       pushToast({
-        title: "Question cancelled",
+        title: t("tasks.detail.questionCancelled"),
         tone: "success",
       });
     },
     onError: (err) => {
       pushToast({
-        title: "Cancel failed",
+        title: t("tasks.detail.cancelError"),
         body:
           err instanceof Error ? err.message : "Unable to cancel the question",
         tone: "error",
@@ -5128,7 +5138,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onError: (err) => {
       pushToast({
-        title: "Skip failed",
+        title: t("tasks.detail.skipError"),
         body:
           err instanceof Error ? err.message : "Unable to skip this request",
         tone: "error",
@@ -5251,7 +5261,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           return;
         } catch (err) {
           pushToast({
-            title: "Cancel failed",
+            title: t("tasks.detail.cancelError"),
             body:
               err instanceof Error
                 ? err.message
@@ -5366,14 +5376,14 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       invalidateIssueThreadLazily();
       invalidateIssueCollections();
       pushToast({
-        title: "Queued comment canceled",
+        title: t("tasks.detail.queuedCancelled"),
         body: "The queued message was restored to the composer.",
         tone: "success",
       });
     },
     onError: (err) => {
       pushToast({
-        title: "Cancel failed",
+        title: t("tasks.detail.cancelError"),
         body:
           err instanceof Error
             ? err.message
@@ -5394,14 +5404,14 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       invalidateIssueCollections();
       invalidateIssueDocumentAnnotationState();
       pushToast({
-        title: "Comment deleted",
+        title: t("tasks.detail.commentDeleted"),
         body: "The thread now shows a deleted-comment marker.",
         tone: "success",
       });
     },
     onError: (err) => {
       pushToast({
-        title: "Delete failed",
+        title: t("tasks.detail.deleteError"),
         body:
           err instanceof Error ? err.message : "Unable to delete the comment",
         tone: "error",
@@ -5422,7 +5432,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
         if (cancelledCommentBody) {
           restoreQueuedCommentDraft(cancelledCommentBody);
           pushToast({
-            title: "Queued comment canceled",
+            title: t("tasks.detail.queuedCancelled"),
             body: "The queued message was restored to the composer.",
             tone: "success",
           });
@@ -5502,7 +5512,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
         );
       }
       pushToast({
-        title: "Failed to save feedback",
+        title: t("tasks.detail.feedbackError"),
         body: err instanceof Error ? err.message : "Unknown error",
         tone: "error",
       });
@@ -5607,10 +5617,10 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
         { replace: true },
       );
       pushToast({
-        title: "Task archived from inbox",
+        title: t("tasks.detail.archived"),
         tone: "success",
         action: {
-          label: "Undo",
+          label: t("tasks.detail.undo"),
           onClick: () => {
             void undoInboxArchive(
               id,
@@ -5627,7 +5637,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
         restoreIssueToInboxCaches(queryClient, context.previousData, id);
       }
       pushToast({
-        title: "Archive failed",
+        title: t("tasks.detail.archiveError"),
         body:
           err instanceof Error
             ? err.message
@@ -6357,11 +6367,11 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     try {
       await copyTextToClipboard(md);
       setCopied(true);
-      pushToast({ title: "Copied to clipboard", tone: "success" });
+      pushToast({ title: t("tasks.detail.copied"), tone: "success" });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       pushToast({
-        title: "Copy failed",
+        title: t("tasks.detail.copyError"),
         body:
           error instanceof Error
             ? error.message
@@ -6558,7 +6568,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     () => [
       {
         id: "cancel",
-        label: "Stop and cancel",
+        label: t("tasks.detail.stopCancel"),
         pendingLabel: "Stopping and cancelling...",
         isPending:
           stopAndFinalizeRun.isPending &&
@@ -6572,7 +6582,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       },
       {
         id: "done",
-        label: "Stop and done",
+        label: t("tasks.detail.stopDone"),
         pendingLabel: "Stopping and marking done...",
         isPending:
           stopAndFinalizeRun.isPending &&
@@ -7123,8 +7133,8 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           "Uploading..."
         ) : (
           <>
-            <span className="hidden sm:inline">Upload attachment</span>
-            <span className="sm:hidden">Upload</span>
+            <span className="hidden sm:inline">{t("tasks.detail.uploadAttachment")}</span>
+            <span className="sm:hidden">{t("tasks.detail.upload")}</span>
           </>
         )}
       </Button>
@@ -7386,7 +7396,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               variant="ghost"
               size="icon-xs"
               onClick={copyIssueToClipboard}
-              title="Copy task as markdown"
+              title={t("tasks.detail.copyMarkdown")}
             >
               {copied ? (
                 <Check className="h-4 w-4 text-green-500" />
@@ -7398,7 +7408,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               variant="ghost"
               size="icon-xs"
               onClick={() => setMobilePropsOpen(true)}
-              title="Properties"
+              title={t("tasks.detail.properties")}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -7415,8 +7425,8 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                   archiveFromInbox.mutate(issue.id);
               }}
               disabled={archivePending}
-              title="Archive from inbox"
-              aria-label="Archive from inbox"
+              title={t("tasks.detail.archive")}
+              aria-label={t("tasks.detail.archive")}
             >
               <Archive className="h-4 w-4" />
             </Button>
@@ -7426,8 +7436,8 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               variant="ghost"
               size="icon-xs"
               onClick={() => setFileViewerPromptOpen(true)}
-              title="Open file... (g f)"
-              aria-label="Open file in this issue"
+              title={t("tasks.detail.openFileShortcut")}
+              aria-label={t("tasks.detail.openFile")}
             >
               <FileCode2 className="h-4 w-4" />
             </Button>
@@ -7437,7 +7447,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               variant="ghost"
               size="icon-xs"
               onClick={copyIssueToClipboard}
-              title="Copy task as markdown"
+              title={t("tasks.detail.copyMarkdown")}
             >
               {copied ? (
                 <Check className="h-4 w-4 text-green-500" />
@@ -7479,8 +7489,8 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                   variant="ghost"
                   size="icon-xs"
                   className="shrink-0"
-                  aria-label="More task actions"
-                  title="More task actions"
+                  aria-label={t("tasks.detail.moreTask")}
+                  title={t("tasks.detail.moreTask")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -7502,7 +7512,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                       }}
                     >
                       <Plus className="h-3 w-3" />
-                      Add subtask
+                      {t("tasks.detail.addSubtask")}
                     </button>
                     <button
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50"
@@ -7516,7 +7526,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                       ) : (
                         <Copy className="h-3 w-3" />
                       )}
-                      Copy as markdown
+                      {t("tasks.detail.copyAsMarkdown")}
                     </button>
                     {canArchiveFromInbox ? (
                       <button
@@ -7529,7 +7539,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                         }}
                       >
                         <Archive className="h-3 w-3" />
-                        Archive from inbox
+                        {t("tasks.detail.archive")}
                       </button>
                     ) : null}
                   </>
@@ -7588,7 +7598,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                   }}
                 >
                   <EyeOff className="h-3 w-3" />
-                  Hide this task
+                  {t("tasks.detail.hide")}
                 </button>
               </PopoverContent>
             </Popover>
@@ -7631,7 +7641,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           onSave={(description) => updateIssue.mutateAsync({ description })}
           as="p"
           className="text-sm leading-7 text-foreground"
-          placeholder="Add a description..."
+          placeholder={t("tasks.detail.description")}
           multiline
           foldable
           mentions={mentionOptions}
@@ -7752,7 +7762,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           )}
 
           {issue.status === "in_review" && issue.externalConversationState === "waiting" && (
-            <p role="status" className="text-sm text-muted-foreground">Reply sent. Send a message to continue.</p>
+            <p role="status" className="text-sm text-muted-foreground">{t("tasks.detail.replySent")}</p>
           )}
 
           {issue.hiddenAt && (
@@ -8473,7 +8483,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               {taskChatShellEnabled ? (
                 <>
                   <SheetHeader className="sr-only">
-                    <SheetTitle>Task side panel</SheetTitle>
+                    <SheetTitle>{t("tasks.detail.sidePanel")}</SheetTitle>
                   </SheetHeader>
                   <TaskSidePanel
                     openBrowserId={openBrowserId}

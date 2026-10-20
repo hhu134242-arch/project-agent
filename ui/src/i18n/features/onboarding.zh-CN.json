@@ -1,0 +1,19 @@
+{
+  "onboarding.stepLabel.name": "为组织命名",
+  "onboarding.stepLabel.createAgent": "创建首个智能体",
+  "onboarding.stepLabel.connectModel": "连接模型",
+  "onboarding.stepLabel.review": "确认",
+  "onboarding.stepLabel.number": "第 {{step}} 步",
+  "onboarding.stepLabel.progress": "第 {{step}} 步，共 {{total}} 步",
+  "onboarding.sdk.connect": "测试并创建智能体",
+  "onboarding.sdk.environment": "执行环境",
+  "onboarding.sdk.defaultEnvironment": "跟随实例默认环境",
+  "onboarding.sdk.probeCost": "测试会产生少量 API 费用。",
+  "onboarding.modelSource": "模型来源",
+  "onboarding.credential.subscription": "订阅账户",
+  "onboarding.credential.api": "API 密钥",
+  "onboarding.credential.advanced": "自定义网关",
+  "onboarding.sdk.environmentLoadFailed": "无法加载执行环境设置，请重试后再创建智能体。",
+  "onboarding.switchCredential.api": "改用 API 密钥",
+  "onboarding.switchCredential.subscription": "改用订阅账户"
+}

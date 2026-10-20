@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "slug": "deepseek",
+  "name": "DeepSeek",
+  "description": "Use DeepSeek models with an API key through Vercel AI SDK.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/deepseek.svg"
+  },
+  "urlPatterns": [
+    "https://api.deepseek.com/*"
+  ],
+  "docsUrl": "https://api-docs.deepseek.com/",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "DeepSeek API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "deepseek",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.deepseek.com",
+          "models": [
+            {
+              "id": "deepseek-flash",
+              "label": "DeepSeek Flash"
+            },
+            {
+              "id": "deepseek-v4-pro",
+              "label": "DeepSeek V4 Pro"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized DeepSeek account.",
+      "guidanceMd": "Create an API key in the DeepSeek console. Choose a model and run the agent test to verify access. Keys are stored in the encrypted credential vault.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter DeepSeek API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://platform.deepseek.com/api_keys",
+        "docs": "https://api-docs.deepseek.com/"
+      }
+    }
+  ]
+}

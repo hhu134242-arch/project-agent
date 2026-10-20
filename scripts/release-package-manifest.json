@@ -1,5 +1,10 @@
 [
   {
+    "dir": "packages/adapters/ai-sdk",
+    "name": "@paperclipai/adapter-ai-sdk",
+    "publishFromCi": true
+  },
+  {
     "dir": "packages/adapter-utils",
     "name": "@paperclipai/adapter-utils",
     "publishFromCi": true

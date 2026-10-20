@@ -1,5 +1,33 @@
 # Developing
 
+## Language and API model development
+
+The board UI publishes `en` and `zh-CN`. The personal language selector offers
+English, Simplified Chinese and browser-language detection. Preferences are
+browser-local, partitioned by account, shared across companies and synchronized
+across tabs. Changing UI language does not translate user content or change an
+agent's reply language, business currency, scheduler time zone or UTC budget
+period. Translated core journeys include authentication, navigation, company
+setup, dashboard, task creation/list/detail/composer and API platform/model setup;
+specialized unconverted pages retain their existing English text.
+
+Feature messages live in paired `ui/src/i18n/features/<feature>.en.json` and
+`<feature>.zh-CN.json` files. Use semantic keys through `useTranslation` and keep
+interpolation parameters and locale-specific plural branches valid. Only released
+languages are loaded and checked. Do not replace calculation-oriented fixed
+locales such as cron weekday parsing with the display locale.
+
+`@paperclipai/adapter-ai-sdk` supplies the local API model/MCP execution loop.
+Use an explicitly selected managed API platform account and exact model ID; see
+[AI connections](connections/AI-CONNECTIONS.md#api-platforms-through-vercel-ai-sdk).
+Its controlled HTTP regression exercises real SDK streaming, tool calls, usage,
+Stop, errors and session identity without calling a paid upstream:
+
+```sh
+pnpm exec vitest run server/src/__tests__/ai-sdk-adapter.test.ts packages/adapters/ai-sdk/src/server
+pnpm exec vitest run ui/src/i18n ui/src/pages/NewAgent.ai-sdk.test.tsx
+```
+
 This project can run fully in local dev without setting up PostgreSQL manually.
 
 ## Deployment Modes

@@ -21,7 +21,7 @@ import type { AiConnectionSummary } from "./model";
 function ConnectionLabel({ connection, label }: { connection: AiConnectionSummary; label?: string }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <AppLogo name={connection.name} brandKey={aiConnectionCatalogSlug(connection.provider, connection.routing)} size={20} compact />
+      <AppLogo name={connection.name} brandKey={aiConnectionCatalogSlug(connection.provider, connection.routing, connection.vendorPresetId)} size={20} compact />
       <span className="truncate">{label ?? connection.name}</span>
     </span>
   );

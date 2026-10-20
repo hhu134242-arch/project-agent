@@ -248,7 +248,7 @@ describe("AuthPage", () => {
       passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    signInEmailMock.mockRejectedValueOnce(new Error("Invalid email or password"));
+    signInEmailMock.mockRejectedValueOnce(Object.assign(new Error("Provider-specific diagnostic"), { code: "INVALID_EMAIL_OR_PASSWORD" }));
 
     const form = container.querySelector("form") as HTMLFormElement;
     await act(async () => {
@@ -260,7 +260,7 @@ describe("AuthPage", () => {
     const alert = container.querySelector('[role="alert"]') as HTMLElement;
     expect(alert).not.toBeNull();
     expect(alert.hasAttribute("aria-live")).toBe(false);
-    expect(alert.textContent).toContain("Invalid email or password");
+    expect(alert.textContent).toContain("The email or password is incorrect.");
 
     const errorId = alert.id;
     expect(errorId.length).toBeGreaterThan(0);

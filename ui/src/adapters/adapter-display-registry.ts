@@ -5,6 +5,7 @@
  * adapters get sensible defaults derived from their type string via
  * `getAdapterDisplay()`.
  */
+import { t } from "@/i18n";
 import type { ComponentType } from "react";
 import { agentHarnessType } from "@paperclipai/shared";
 import {
@@ -61,6 +62,7 @@ export interface AdapterDisplayInfo {
 }
 
 const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
+  ai_sdk: { label: "API model", description: "Choose an API platform and model", icon: Cpu, recommended: true },
   acpx_local: {
     label: "ACPX (retired)",
     description: "Retired standalone ACPX adapter",
@@ -186,6 +188,7 @@ function humanizeType(type: string): string {
 }
 
 export function getAdapterLabel(type: string): string {
+  if (type === "ai_sdk") return t("aiSdk.label");
   // Known labels are final — only unknown (plugin) types get a derived
   // suffix, so labels like "OpenClaw Gateway" don't become
   // "OpenClaw Gateway (gateway)".
@@ -197,12 +200,13 @@ export function getAdapterLabel(type: string): string {
 export function getAdapterLabels(): Record<string, string> {
   const labels: Record<string, string> = {};
   for (const [type, info] of Object.entries(adapterDisplayMap)) {
-    labels[type] = info.label;
+    labels[type] = getAdapterLabel(type);
   }
   return labels;
 }
 
 export function getAdapterDisplay(type: string): AdapterDisplayInfo {
+  if (type === "ai_sdk") return { ...adapterDisplayMap.ai_sdk, label: t("aiSdk.label"), description: t("aiSdk.description") };
   const known = adapterDisplayMap[type];
   if (known) return known;
 

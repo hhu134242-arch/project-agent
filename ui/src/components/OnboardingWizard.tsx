@@ -1,3 +1,7 @@
+import { t, useTranslation } from "@/i18n";
+import { LanguageSelect } from "@/components/LanguageSelect";
+import { AiSdkConnectionField } from "@/components/ai-connections/AiSdkConnectionField";
+import { aiConnectionBindingSchema } from "@paperclipai/shared";
 import type { AgentRunner, AgentRunnerChoice } from "@paperclipai/shared";
 import { needsClaudeSetupQualification, qualifyClaudeSetup } from "../lib/qualify-claude-setup";
 import { agentHarnessType } from "@paperclipai/shared";
@@ -332,6 +336,7 @@ const INCOMPLETE_ONBOARDING_STATE_MESSAGE =
  * clear before computing `saved` and mounting the inner component at all.
  */
 export function OnboardingWizard() {
+  useTranslation();
   // Deliberately does not call `useCompany()`. The list it exposes is the
   // shared cache, which is what this gate must not trust - see below.
 
@@ -489,6 +494,7 @@ function OnboardingWizardInner({
   const navigate = useNavigate();
   const location = useLocation();
   const { companyPrefix: matchedCompanyPrefix } = useParams<{ companyPrefix?: string }>();
+  const { i18n } = useTranslation();
   // This component renders beside `<Routes>`, not inside it (`App.tsx`), so it
   // has no route match and `useParams()` gives nothing. Read the prefix from
   // the pathname, which `useLocation()` supplies without a match. The param is
@@ -696,6 +702,13 @@ function OnboardingWizardInner({
   const [createdCompanyId, setCreatedCompanyId] = useState<string | null>(
     existingCompanyId ?? (saved?.createdCompanyId as string) ?? null
   );
+  const [aiSdkBinding, setAiSdkBinding] = useState<AiConnectionBinding | undefined>(
+    () => aiConnectionBindingSchema.safeParse(saved?.aiSdkBinding).data,
+  );
+  const [aiSdkConnectionValid, setAiSdkConnectionValid] = useState(false);
+  const [aiSdkEnvironmentId, setAiSdkEnvironmentId] = useState<string | null>(
+    typeof saved?.aiSdkEnvironmentId === "string" ? saved.aiSdkEnvironmentId : null,
+  );
   const savedKeys = useSavedProviderKeys(
     createdCompanyId,
     apiKeyEnvKeyFor(adapterType),
@@ -766,6 +779,7 @@ function OnboardingWizardInner({
   const managedProvider = aiProviderForAdapter(adapterType);
   const managedSubscriptionProvider = managedProvider === "anthropic" || managedProvider === "openai" || managedProvider === "xai" ? managedProvider : undefined;
   function managedBindingForStep(): AiConnectionBinding | undefined {
+    if (adapterType === "ai_sdk") return aiSdkBinding;
     if (credentialMode === "api") return selectedApiKey?.aiConnection ?? (
       !selectedApiKey && apiKeySecretRef.current?.companyId === createdCompanyId && apiKeySecretRef.current.envKey === apiKeyEnvKeyFor(adapterType)
         ? apiKeySecretRef.current.aiConnection : undefined);
@@ -913,7 +927,7 @@ function OnboardingWizardInner({
       step, companyName,
       agentName, agentAppearance, agentRole, adapterType, runner, cwd, model, command, args, url,
       // The mode, never the key: this blob is localStorage.
-      credentialMode, credentialModeChoice,
+      credentialMode, credentialModeChoice, aiSdkBinding, aiSdkEnvironmentId,
       createdCompanyId, createdCompanyPrefix, createdAgentId,
       createdCompanyGoalId, createdProjectId, createdIssueRef,
     };
@@ -921,7 +935,7 @@ function OnboardingWizardInner({
   }, [
     effectiveOnboardingOpen, step, companyName,
     agentName, agentAppearance, agentRole, adapterType, runner, cwd, model, command, args, url,
-    credentialMode, credentialModeChoice,
+    credentialMode, credentialModeChoice, aiSdkBinding, aiSdkEnvironmentId,
     createdCompanyId, createdCompanyPrefix, createdAgentId,
     createdCompanyGoalId, createdProjectId, createdIssueRef,
   ]);
@@ -1183,6 +1197,7 @@ function OnboardingWizardInner({
     adapterCaps.supportsLocalAgentJwt;
   const isLocalAdapter =
     isLocalAdapterCaps ||
+    adapterType === "ai_sdk" ||
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
@@ -1206,7 +1221,7 @@ function OnboardingWizardInner({
       recommendedAdapters: all.filter((a) => a.recommended),
       moreAdapters: all.filter((a) => !a.recommended),
     };
-  }, [disabledTypes]);
+  }, [disabledTypes, i18n.resolvedLanguage]);
 
   /**
    * A source chosen from the visible row. Read off the row rather than off
@@ -1214,7 +1229,7 @@ function OnboardingWizardInner({
    * no longer offers — a selection the customer cannot see.
    */
   const sourceSelected =
-    sourcePicked && recommendedAdapters.some((opt) => opt.type === adapterType);
+    (sourcePicked || adapterType === "ai_sdk") && recommendedAdapters.some((opt) => opt.type === adapterType);
 
   /**
    * Whether the connect step may advance.
@@ -1233,7 +1248,9 @@ function OnboardingWizardInner({
    * Anything that gates this step belongs in here, so the next one is added
    * once rather than twice.
    */
-  const connectStepReady = sourceSelected && !adapterEnvLoading && !savedKeys.loading && runnerDiscoveryReady;
+  const connectStepReady = (adapterType === "ai_sdk"
+    ? Boolean(aiSdkConnectionValid && loginEnvironmentSettingsReady)
+    : sourceSelected && !savedKeys.loading) && !adapterEnvLoading && runnerDiscoveryReady;
 
   /**
    * Whether this step has a sign-in to do before it can hire.
@@ -1427,7 +1444,9 @@ function OnboardingWizardInner({
    */
   const connectSourceLabel = CONNECT_SOURCE_NAMES[adapterType] ?? adapterType;
   const connectCta: { label: string; icon: FooterPrimaryIcon; disabled: boolean } =
-    connectProgress
+    adapterType === "ai_sdk"
+      ? { label: t("onboarding.sdk.connect"), icon: adapterEnvLoading || loading ? "spinner" : "arrow", disabled: !connectStepReady || loading }
+      : connectProgress
       ? { label: adapterEnvLoading ? "Testing…" : connectProgress, icon: "spinner", disabled: true }
       : connectPhase === "waiting"
       ? { label: "Waiting for code", icon: "spinner", disabled: true }
@@ -1448,7 +1467,7 @@ function OnboardingWizardInner({
               }
           : // Nothing is chosen on arrival, and the row is what chooses. Until
             // it has been answered the button has nothing to do.
-            { label: "Next", icon: "arrow", disabled: true };
+            { label: t("onboarding.next"), icon: "arrow", disabled: true };
 
   /**
    * Back, on the connect step, unwinds the sign-in before it leaves the step.
@@ -1488,6 +1507,7 @@ function OnboardingWizardInner({
    * it is meant to start, against a source with no credential.
    */
   function handleConnectStepPrimary() {
+    if (adapterType === "ai_sdk") { void handleGiveHeartbeat(); return; }
     // Mid-sequence the button belongs to the sign-in, not to the step.
     if (connectPhase === "ready" && connectStepNeedsLogin) {
       if (connectAuthUrl) window.open(connectAuthUrl, "_blank", "noreferrer,noopener");
@@ -2002,7 +2022,7 @@ function OnboardingWizardInner({
       // resolver throws when no managed sandbox is available, which the outer
       // catch surfaces as a fail-closed error rather than a local host probe.
       const environmentId = resolveAdapterTestEnvironmentId({
-        agentDefaultEnvironmentId: null,
+        agentDefaultEnvironmentId: adapterType === "ai_sdk" ? aiSdkEnvironmentId : null,
         instanceDefaultEnvironmentId: settings?.defaultEnvironmentId ?? null,
         localDefaultEnvironmentId: resolveLocalDefaultEnvironmentId(environmentList),
         managedSandboxOnly,
@@ -2141,6 +2161,10 @@ function OnboardingWizardInner({
   // doesn't hire a second agent.
   async function handleGiveHeartbeat() {
     if (!createdCompanyId) return;
+    if (adapterType === "ai_sdk" && (!aiSdkConnectionValid || !aiSdkBinding || !model.trim())) {
+      setError(t("aiSdk.chooseConnection"));
+      return;
+    }
     if (adapterType === "paperclip_runner") {
       setAdapterType("claude_local");
       setModel("");
@@ -2331,6 +2355,7 @@ function OnboardingWizardInner({
         role: agentRole,
         adapterType,
         adapterConfig: hireAdapterConfig,
+        ...(adapterType === "ai_sdk" && aiSdkEnvironmentId ? { defaultEnvironmentId: aiSdkEnvironmentId } : {}),
         ...(["codex_local", "claude_local"].includes(adapterType) && runner !== "auto" ? { runner } : {}),
         ...(shouldApplyStoredClaudeLogin ? { applyStoredClaudeLogin: true } : {}),
         // The server owns what the first agent is told now: this marker seeds
@@ -2540,6 +2565,9 @@ function OnboardingWizardInner({
           className="fixed inset-0 z-50 flex"
           onKeyDown={handleKeyDown}
         >
+          <div className="absolute right-4 top-4 z-10 w-44">
+            <LanguageSelect compact />
+          </div>
           {/* Form column — the wizard opens directly on step 1, so there is no
               front-door choice ahead of it, and it fills the width on every
               step (the mission step's half-width split is gone). */}
@@ -2685,12 +2713,12 @@ function OnboardingWizardInner({
                       title={
                         <motion.span key={step} {...titleSwapMotion} className="inline-block">
                           {step === 1
-                            ? "What is the name of your organization?"
+                            ? t("onboarding.name")
                             : step === 3
-                              ? "Create your first agent"
+                              ? t("onboarding.firstAgent")
                               : step === 4
-                                ? "Connect a model"
-                                : "Let's get started..."}
+                                ? t("onboarding.connectModel")
+                                : t("onboarding.starting")}
                         </motion.span>
                       }
                     />
@@ -2712,7 +2740,7 @@ function OnboardingWizardInner({
                       <p className="pt-2 text-base leading-relaxed text-muted-foreground">
                         <motion.span key={step} {...titleSwapMotion} className="inline-block">
                           {step === 4
-                            ? "Paperclip works with your subscription or API keys."
+                            ? t("onboarding.connectHint")
                             : `${agentName.trim() || "Your first agent"} is ready to work!`}
                         </motion.span>
                       </p>
@@ -2739,11 +2767,11 @@ function OnboardingWizardInner({
               {step === 1 && (
                 <motion.div key="step-1" {...stepContentMotion} exit={stepHandoff ? stepContentMotion.exit : undefined} className="mx-auto flex w-full flex-col gap-9">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="onboarding-company-name">Name</Label>
+                    <Label htmlFor="onboarding-company-name">{t("onboarding.companyName")}</Label>
                     <Input
                       id="onboarding-company-name"
                       className="h-(--sz-44px) rounded-lg border-transparent bg-muted shadow-none dark:bg-muted"
-                      placeholder="e.g. Northwind Labs"
+                      placeholder={t("onboarding.placeholder")}
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       onKeyDown={(e) => {
@@ -2767,7 +2795,7 @@ function OnboardingWizardInner({
               {step === 3 && (
                 <motion.div key="step-3" {...stepContentMotion} exit={stepHandoff ? stepContentMotion.exit : undefined} className="mx-auto flex w-full flex-col gap-9">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="onboarding-agent-name">Agent name</Label>
+                    <Label htmlFor="onboarding-agent-name">{t("onboarding.agentName")}</Label>
                     {/*
                       Filled, not outlined, and the column's full width — the
                       same field the naming step before the hand-off draws.
@@ -2780,7 +2808,7 @@ function OnboardingWizardInner({
                     <Input
                       id="onboarding-agent-name"
                       className="h-(--sz-44px) rounded-lg border-transparent bg-muted shadow-none dark:bg-muted"
-                      placeholder="e.g. Chief of staff"
+                      placeholder={t("onboarding.agentExample")}
                       value={agentName}
                       onChange={(e) => setAgentName(e.target.value)}
                       onKeyDown={(e) => {
@@ -2808,15 +2836,16 @@ function OnboardingWizardInner({
                         Picking one starts the sign-in now. The row is the
                         question, and answering it is what opens the card. */}
                     <ModelSourceTiles
-                      label="Model source"
+                      label={t("onboarding.modelSource")}
                       sources={recommendedAdapters.map((opt) => ({
                         id: opt.type,
-                        label: CONNECT_SOURCE_NAMES[opt.type] ?? opt.label,
+                        label: opt.type === "ai_sdk" ? t("aiSdk.label") : CONNECT_SOURCE_NAMES[opt.type] ?? opt.label,
                         icon: <ModelSourceMark type={opt.type} Fallback={opt.icon} />,
+                        ...(opt.type === "ai_sdk" ? { credentialMode: "api" as const } : {}),
                       }))}
                       mode={credentialMode}
                       selectedId={
-                        sourcePicked &&
+                        (sourcePicked || adapterType === "ai_sdk") &&
                         recommendedAdapters.some((opt) => opt.type === adapterType)
                           ? adapterType
                           : null
@@ -2829,6 +2858,14 @@ function OnboardingWizardInner({
                         setSourcePicked(true);
                         setAdapterType(id);
                         if (id !== adapterType) setRunner("auto");
+                        if (id === "ai_sdk") {
+                          setCredentialMode("api");
+                          setModel("");
+                          setAiSdkBinding(undefined);
+                          setAiSdkConnectionValid(false);
+                          setConnectPhase("idle");
+                          return;
+                        }
                         if (id === "opencode_local") setModel(DEFAULT_OPENCODE_LOCAL_MODEL);
                         else if (id !== "codex_local") setModel("");
                         setConnectPhase("collapsing");
@@ -2841,7 +2878,7 @@ function OnboardingWizardInner({
                         without abandoning it, so it goes rather than sitting
                         there inviting a press that cannot be honoured. */}
                     <motion.div
-                      className="overflow-hidden"
+                      className={adapterType === "ai_sdk" ? "hidden" : "overflow-hidden"}
                       /*
                         Inert once it has faded. It is clipped to nothing rather
                         than unmounted, so without this it stays clickable and
@@ -2865,6 +2902,29 @@ function OnboardingWizardInner({
                     </motion.div>
                   </div>
 
+                  {adapterType === "ai_sdk" && createdCompanyId && <div className="space-y-4">
+                    <AiSdkConnectionField companyId={createdCompanyId} value={aiSdkBinding}
+                      onChange={binding => { if (binding.mode === "shared" || binding.mode === "delegated") setAiSdkBinding(binding); }}
+                      onClear={() => { setAiSdkBinding(undefined); setAiSdkConnectionValid(false); }}
+                      model={model} onModelChange={setModel} onValidityChange={setAiSdkConnectionValid} readOnly={loading || adapterEnvLoading} />
+                    <p className="text-sm text-muted-foreground">{t("aiSdk.capabilities")}</p>
+                    {(loginEnvironmentsFailed || loginSettingsFailed || loginPolicyFailed) && <p role="alert" className="text-sm text-destructive">
+                      {t("onboarding.sdk.environmentLoadFailed")}
+                      <Button type="button" variant="ghost" onClick={() => void retryRunnerAvailability()}>{t("modelUi.retry")}</Button>
+                    </p>}
+                    <label className="block space-y-2 text-sm">
+                      <span>{t("onboarding.sdk.environment")}</span>
+                      <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        value={aiSdkEnvironmentId ?? ""} disabled={loading || adapterEnvLoading}
+                        onChange={event => setAiSdkEnvironmentId(event.target.value || null)}>
+                        <option value="">{t("onboarding.sdk.defaultEnvironment")}</option>
+                        {loginEnvironmentList.filter(environment => environment.driver === "local").map(environment =>
+                          <option key={environment.id} value={environment.id}>{environment.name}</option>)}
+                      </select>
+                    </label>
+                    <p className="text-sm text-muted-foreground">{t("aiSdk.localOnly")} {t("onboarding.sdk.probeCost")}</p>
+                  </div>}
+
                   {/*
                     Room first, card second. `height` opens the space — which the
                     link's collapse shares, so the column slides once — and the
@@ -2879,7 +2939,7 @@ function OnboardingWizardInner({
                     reachable inside a card nobody can see.
                   */}
                   <motion.div
-                    className="overflow-hidden"
+                    className={adapterType === "ai_sdk" ? "hidden" : "overflow-hidden"}
                     inert={!connectCardLive}
                     initial={false}
                     animate={{
@@ -3240,17 +3300,17 @@ function OnboardingWizardInner({
                   // prototype's own local flow draws with "Next".
                   primaryLabel={
                     step === 1
-                      ? "Continue"
+                      ? t("onboarding.continue")
                       : step === 5
-                        ? "Get started"
+                        ? t("onboarding.getStarted")
                         : step === 4
                           ? connectCta.label
-                          : "Next"
+                          : t("onboarding.next")
                   }
                   primaryIcon={step === 4 ? connectCta.icon : undefined}
                   loadingLabel={
                     step === 1
-                      ? "Creating..."
+                      ? t("onboarding.creating")
                       : step === 4
                         ? "Connecting"
                         : "Launching..."
@@ -3296,12 +3356,13 @@ function AdapterEnvironmentResult({
 }: {
   result: AdapterEnvironmentTestResult;
 }) {
+  const { t, i18n } = useTranslation();
   const statusLabel =
     result.status === "pass"
-      ? "Passed"
+      ? t("runtimeCheck.status.pass")
       : result.status === "warn"
-      ? "Warnings"
-      : "Failed";
+      ? t("runtimeCheck.status.warn")
+      : t("runtimeCheck.status.fail");
   const statusClass =
     result.status === "pass"
       ? "text-green-700 dark:text-green-300 border-green-300 dark:border-green-500/40 bg-green-50 dark:bg-green-500/10"
@@ -3314,7 +3375,7 @@ function AdapterEnvironmentResult({
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium">{statusLabel}</span>
         <span className="opacity-80">
-          {new Date(result.testedAt).toLocaleTimeString()}
+          {new Date(result.testedAt).toLocaleTimeString(i18n.resolvedLanguage)}
         </span>
       </div>
       <div className="mt-1.5 space-y-1">
@@ -3324,10 +3385,10 @@ function AdapterEnvironmentResult({
             className="leading-relaxed break-words"
           >
             <span className="font-medium uppercase tracking-wide opacity-80">
-              {check.level}
+              {t(`runtimeCheck.level.${check.level}`, { defaultValue: check.level })}
             </span>
             <span className="mx-1 opacity-60">·</span>
-            <span>{check.message}</span>
+            <span>{t(`runtimeCheck.${check.code}`, { defaultValue: check.message })}</span>
             {check.detail && (
               <span className="block opacity-75 break-all">
                 ({check.detail})

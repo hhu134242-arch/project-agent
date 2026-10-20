@@ -52,6 +52,19 @@ Source: [adapter discovery](../../server/src/adapters/registry.ts).
 Gaps: Raw instance adapter listing requires board, while company model discovery exists
 for eligible agents.
 
+API platform additions (current working change): model discovery includes
+the `ai_sdk` adapter, but invocation requires an explicit shared/delegated managed
+API-key connection with compatible platform/protocol metadata. Responsible-user
+defaults and connection pools do not implicitly select an API platform. Runtime preparation repeats
+company, responsible-user, grant and Agent installation checks before reading the
+vault. Local standard-trust execution is the only supported environment.
+The adapter's current-task tools and company/resource API request tool use the
+existing Agent JWT and run ID. Company-prefix routes must name this company;
+resource routes still enforce server-side company/privacy/responsible-user checks.
+The model cannot choose an external URL or request headers. Assigned MCP tools
+use their run-scoped gateway credentials and normal connection policies. This is
+source/control evidence; live upstream verification requires a real platform key.
+
 Scoped source-only evidence: [adapter discovery](../../server/src/routes/adapters.ts)
 reports supported runners/effective default for the selected company/environment;
 [selection policy](../../server/src/services/agent-runner-selection.ts) reads

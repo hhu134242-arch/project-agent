@@ -2,6 +2,7 @@ import { OPENROUTER_ATTRIBUTION_HEADERS, isOpenRouterUrl, openRouterClaudeHeader
 import {
   aiRoutingBaseUrl,
   aiRoutingModel,
+  isAiSdkRoutingCompatible,
   type AiProviderRouting,
 } from "@paperclipai/shared";
 
@@ -18,7 +19,10 @@ export function managedProviderRouting(
   let hermesConfig = "";
   const baseUrl = aiRoutingBaseUrl(route, harness);
   const openrouter = isOpenRouterUrl(baseUrl);
-  if (route.kind === "bedrock") {
+  if (harness === "ai_sdk") {
+    if (!isAiSdkRoutingCompatible(route)) throw new Error("This API platform route is not supported by AI SDK");
+    env.PAPERCLIP_AI_PROVIDER_KEY = credential;
+  } else if (route.kind === "bedrock") {
     env.CLAUDE_CODE_USE_BEDROCK = "1";
     env.AWS_REGION = route.region!;
     env.AWS_DEFAULT_REGION = route.region!;

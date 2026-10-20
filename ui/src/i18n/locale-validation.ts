@@ -68,7 +68,7 @@ function validateString(path: string[], candidateValue: string, englishValue: st
   }
 }
 
-function validateNode(path: string[], candidate: unknown, englishReference: unknown, errors: string[]) {
+function validateNode(path: string[], candidate: unknown, englishReference: unknown, errors: string[], locale?: string) {
   if (typeof englishReference === "string") {
     if (typeof candidate !== "string") {
       errors.push(`${formatPath(path)} must be a string`);
@@ -88,7 +88,25 @@ function validateNode(path: string[], candidate: unknown, englishReference: unkn
     return;
   }
 
-  const englishKeys = Object.keys(englishReference).sort();
+  const reference = { ...englishReference };
+  if (locale) {
+    // i18next uses each locale's cardinal categories: Chinese requires only
+    // `_other`, while English requires `_one` and `_other`. Compare the same
+    // semantic message rather than forcing English grammar on every language.
+    const categories = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
+    const pluralBases = new Set(Object.keys(reference)
+      .filter((key) => key.endsWith("_other") && typeof reference[key] === "string" && /{{\s*count\s*}}/.test(reference[key] as string))
+      .map((key) => key.slice(0, -6)));
+    for (const base of pluralBases) {
+      const other = reference[`${base}_other`];
+      const original = { ...reference };
+      for (const category of ["zero", "one", "two", "few", "many", "other"]) delete reference[`${base}_${category}`];
+      for (const category of categories) reference[`${base}_${category}`] = original[`${base}_${category}`] ?? other;
+      // The exact-zero i18next override is optional in every locale.
+      if (`${base}_zero` in candidate) reference[`${base}_zero`] = original[`${base}_zero`] ?? other;
+    }
+  }
+  const englishKeys = Object.keys(reference).sort();
   const candidateKeys = Object.keys(candidate).sort();
   const missingKeys = englishKeys.filter((key) => !candidateKeys.includes(key));
   const extraKeys = candidateKeys.filter((key) => !englishKeys.includes(key));
@@ -102,19 +120,19 @@ function validateNode(path: string[], candidate: unknown, englishReference: unkn
 
   for (const key of englishKeys) {
     if (key in candidate) {
-      validateNode([...path, key], candidate[key], englishReference[key], errors);
+      validateNode([...path, key], candidate[key], reference[key], errors, locale);
     }
   }
 }
 
-export function validateLocaleMessages(candidate: unknown, englishReference: unknown = en) {
+export function validateLocaleMessages(candidate: unknown, englishReference: unknown = en, locale?: string) {
   const errors: string[] = [];
-  validateNode([], candidate, englishReference, errors);
+  validateNode([], candidate, englishReference, errors, locale);
   return errors;
 }
 
-export function assertValidLocaleMessages(candidate: unknown, englishReference: unknown = en) {
-  const errors = validateLocaleMessages(candidate, englishReference);
+export function assertValidLocaleMessages(candidate: unknown, englishReference: unknown = en, locale?: string) {
+  const errors = validateLocaleMessages(candidate, englishReference, locale);
   if (errors.length > 0) {
     throw new Error(`Invalid locale messages:\n${errors.join("\n")}`);
   }

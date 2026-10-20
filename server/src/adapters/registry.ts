@@ -137,6 +137,9 @@ import { buildExternalAdapters } from "./plugin-loader.js";
 import { getDisabledAdapterTypes } from "../services/adapter-plugin-store.js";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
+import { execute as aiSdkExecute, testEnvironment as aiSdkTestEnvironment, sessionCodec as aiSdkSessionCodec } from "@paperclipai/adapter-ai-sdk/server";
+import { models as aiSdkModels, agentConfigurationDoc as aiSdkAgentConfigurationDoc } from "@paperclipai/adapter-ai-sdk";
+import { createAiSdkEndpointFetch } from "../services/ai-sdk-fetch.js";
 import {
   DEFAULT_OPENCODE_RUNNER_MODEL,
   PaperclipRunnerProviderProfileError,
@@ -803,6 +806,20 @@ const geminiLocalAdapter: ServerAdapterModule = {
   getConfigSchema: getGeminiConfigSchema,
 };
 
+const aiSdkAdapter: ServerAdapterModule = {
+  type: "ai_sdk",
+  execute: (ctx) => aiSdkExecute(ctx, { customEndpointFetch: createAiSdkEndpointFetch({ timeoutSec: typeof ctx.config.timeoutSec === "number" ? ctx.config.timeoutSec : undefined }) }),
+  testEnvironment: (ctx) => aiSdkTestEnvironment(ctx, { customEndpointFetch: createAiSdkEndpointFetch({ timeoutSec: 15 }) }),
+  sessionCodec: aiSdkSessionCodec,
+  runtimeToolDelivery: "native_mcp",
+  supportsLocalAgentJwt: true,
+  supportsToolRefreshOnResume: true,
+  supportsInstructionsBundle: true,
+  requiresMaterializedRuntimeSkills: false,
+  models: aiSdkModels,
+  agentConfigurationDoc: aiSdkAgentConfigurationDoc,
+};
+
 const grokLocalAdapter: ServerAdapterModule = {
   type: "grok_local",
   runtimeToolDelivery: "environment",
@@ -947,6 +964,7 @@ function registerBuiltInAdapters() {
     openclawGatewayAdapter,
     processAdapter,
     httpAdapter,
+    aiSdkAdapter,
   ]) {
     adaptersByType.set(adapter.type, adapter);
   }

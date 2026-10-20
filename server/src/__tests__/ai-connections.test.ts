@@ -6,7 +6,7 @@ import { localAiLoginService } from "../services/local-ai-login.js";
 // auth tests must not send the selected fixture credentials to a real provider.
 vi.mock("../services/subscription-refresh.js", () => ({ refreshSubscriptionConnection: vi.fn().mockResolvedValue(undefined) }));
 import * as localCredentials from "../services/local-ai-credentials.js";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { localEncryptedProvider } from "../secrets/local-encrypted-provider.js";
@@ -33,7 +33,7 @@ import { execute as executeGemini, testEnvironment as testGeminiEnvironment } fr
 import { toolAccessService } from "../services/tool-access.js";
 import { secretService } from "../services/secrets.js";
 import { resolveExecutionRunAdapterConfig } from "../services/heartbeat.js";
-import { aiConnectionBindingSchema, connectionPurposeTransportSchema, isAiConnectionCompatible } from "@paperclipai/shared";
+import { aiConnectionBindingSchema, connectionPurposeTransportSchema, isAiConnectionCompatible, deepSeekRouting } from "@paperclipai/shared";
 import { openRouterClaudeHeaders } from "@paperclipai/shared/openrouter-attribution";
 import express from "express";
 import request from "supertest";
@@ -65,9 +65,54 @@ beforeAll(async () => {
   await db.insert(agents).values({ id: agentId, companyId, name: "Nova", adapterType: "claude_local" });
   await db.insert(companyMemberships).values(["alice", "bob"].map(principalId => ({ companyId, principalId, principalType: "user", status: "active", membershipRole: "member" })));
 }, 90000);
-afterAll(async () => { await database?.cleanup(); vi.unstubAllEnvs(); if (home) await rm(home, { recursive: true, force: true }); });
+afterAll(async () => { await database?.cleanup(); vi.restoreAllMocks(); vi.unstubAllEnvs(); if (home) await rm(home, { recursive: true, force: true }); });
+// Default runtime configuration must not inspect a developer's parent .codex or
+// .claude directories. Explicit project-auth fixtures still pass their own cwd.
+beforeEach(() => { vi.spyOn(process, "cwd").mockReturnValue(home); });
 
 describe("managed AI connections", () => {
+  it("keeps DeepSeek identity, authorization and encrypted credentials through SDK runtime preparation", async () => {
+    const routing = deepSeekRouting();
+    const createInput = { provider: "openai", method: "api_key", vendorPresetId: "deepseek", routing, ownership: "personal", name: "DeepSeek test account", apiKey: "deepseek-fixture-secret", agentIds: [], allAgents: true } as const;
+    const saved = await service.save(companyId, "alice", { ...createInput, agentIds: [] }, createInput.apiKey);
+    const selectedBinding = { provider: "openai", method: "api_key", mode: "delegated", ...saved } as const;
+    const listed = await service.list(companyId, "alice");
+    expect(listed.find(connection => connection.id === saved.connectionId)).toMatchObject({ vendorPresetId: "deepseek", routing, isDefault: false });
+    expect(JSON.stringify(listed)).not.toContain(createInput.apiKey);
+    const [stored] = await db.select().from(toolConnections).where(eq(toolConnections.id, saved.connectionId));
+    expect(stored.config.sourceTemplateKey).toBe("deepseek");
+    expect(JSON.stringify(stored.config)).not.toContain(createInput.apiKey);
+    const selection = { companyId, agentId, adapterType: "ai_sdk", binding: selectedBinding, model: "deepseek-flash" };
+    await expect(service.select({ ...selection, userId: "bob" })).rejects.toThrow();
+    await expect(service.select({ ...selection, companyId: otherCompanyId, userId: "alice" })).rejects.toThrow();
+    const runtime = await prepareManagedAiRuntime(db, { companyId, agentId, adapterType: "ai_sdk", responsibleUserId: "alice", binding: selectedBinding, config: { model: "deepseek-flash" } });
+    try {
+      expect(runtime.config).toMatchObject({ model: "deepseek-flash", managedAiVendor: "deepseek", managedAiRouting: routing, env: { PAPERCLIP_AI_PROVIDER_KEY: createInput.apiKey } });
+    } finally { await runtime.cleanup(); }
+    await expect(service.save(companyId, "alice", { ...createInput, agentIds: [], connectionId: saved.connectionId, vendorPresetId: undefined }, "rotated")).rejects.toThrow("model service identity");
+    await db.update(connectionGrants).set({ status: "revoked" }).where(eq(connectionGrants.id, saved.grantId));
+    await expect(service.select({ ...selection, userId: "alice" })).rejects.toThrow();
+  });
+  it.each(["openai", "anthropic", "openrouter"] as const)("projects native %s API credentials without CLI auth files or forged routing", async (provider) => {
+    const owner = `sdk-native-${provider}-owner`;
+    await db.insert(companyMemberships).values({ companyId, principalId: owner, principalType: "user", status: "active", membershipRole: "member" });
+    const key = `sdk-${provider}-fixture-secret`;
+    const saved = await service.save(companyId, owner, { provider, method: "api_key", ownership: "personal", name: `SDK ${provider}`, apiKey: key, agentIds: [], allAgents: true }, key);
+    const selectedBinding = { provider, method: "api_key", mode: "delegated", ...saved } as const;
+    const runtime = await prepareManagedAiRuntime(db, {
+      companyId, agentId, adapterType: "ai_sdk", responsibleUserId: owner, binding: selectedBinding,
+      config: { model: "exact-model", managedAiProvider: "forged", managedAiVendor: "deepseek", managedAiRouting: deepSeekRouting() },
+    });
+    try {
+      expect(runtime.config).toMatchObject({ managedAiProvider: provider, env: { PAPERCLIP_AI_PROVIDER_KEY: key } });
+      expect(runtime.config.managedAiRouting).toBeUndefined();
+      expect(runtime.config.managedAiVendor).toBeUndefined();
+      expect(runtime.config.env.OPENAI_API_KEY).toBe("");
+      expect(runtime.config.env.ANTHROPIC_API_KEY).toBe("");
+      expect(runtime.config.env.OPENCODE_CONFIG_CONTENT).toBe("");
+      await expect(readFile(path.join(runtime.home, "provider", "auth.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { await runtime.cleanup(); }
+  });
   it("marks explicit AI selection rejections without changing their HTTP contract", async () => {
     const owner = "selection-blocker-owner";
     await db.insert(companyMemberships).values({ companyId, principalId: owner, principalType: "user", status: "active", membershipRole: "member" });

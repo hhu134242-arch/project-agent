@@ -1,0 +1,22 @@
+{
+  "connections.access.humans": "Which humans can use this credential?",
+  "connections.access.agents": "Which agents can use this connection?",
+  "connections.access.justMe": "Just me",
+  "connections.access.organization": "Any human in the organization",
+  "connections.access.selectedAgents": "Just agents I pick",
+  "connections.access.anyAgent": "Any agent",
+  "connections.access.noEditableAgents": "You cannot edit any agents yet.",
+  "connections.access.noSignIn": "No sign-in needed",
+  "connections.access.asYou": "Connects as you",
+  "connections.access.asAgent": "Connects as a dedicated agent account",
+  "connections.access.forOrganization": "Connects for everyone in your organization",
+  "connections.access.unchanged": "agent access stays as it is",
+  "connections.access.requestingAgent": "available to the agent that asked for it",
+  "connections.access.allAgents": "available to all agents",
+  "connections.access.noneSelected": "no agents selected yet",
+  "connections.access.selected_one": "available to {{count}} selected agent",
+  "connections.access.selected_other": "available to {{count}} selected agents",
+  "connections.access.summary": "{{identity}}, {{reach}}.",
+  "connections.access.change": "Change",
+  "dialog.close": "Close"
+}

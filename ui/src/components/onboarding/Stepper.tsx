@@ -1,4 +1,5 @@
 import { cn } from "../../lib/utils";
+import { useTranslation } from "@/i18n";
 
 /**
  * The agent arc — create the agent, connect it, review — is the part of the
@@ -107,6 +108,13 @@ export function Stepper({
   canJumpToStep?: (target: number) => boolean;
   onJumpToStep?: (target: number) => void;
 }) {
+  const { t } = useTranslation();
+  const labelKeys: Record<string, string> = {
+    "Name your organization": "onboarding.stepLabel.name",
+    "Create your first agent": "onboarding.stepLabel.createAgent",
+    "Connect a model": "onboarding.stepLabel.connectModel",
+    "Review": "onboarding.stepLabel.review",
+  };
   return (
     <div className="mb-11 flex items-center justify-center gap-2">
       {Array.from({ length: total }, (_, index) => index + 1).map((segment) => {
@@ -115,7 +123,9 @@ export function Stepper({
           <button
             key={segment}
             type="button"
-            aria-label={labels[segment - 1] ?? `Step ${segment}`}
+            aria-label={labels[segment - 1]
+              ? t(labelKeys[labels[segment - 1]!] ?? labels[segment - 1]!, { defaultValue: labels[segment - 1] })
+              : t("onboarding.stepLabel.number", { step: segment })}
             aria-current={segment === step ? "step" : undefined}
             disabled={!jumpable}
             onClick={() => jumpable && onJumpToStep?.(segment)}
@@ -134,7 +144,7 @@ export function Stepper({
       })}
       {/* Out of flow, so it neither takes a row nor picks up the gap. */}
       <span className="sr-only">
-        Step {step} of {total}
+        {t("onboarding.stepLabel.progress", { step, total })}
       </span>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useTranslation } from "@/i18n";
 import { ExternalAgentInviteDialog } from "./ExternalAgentInviteDialog";
 import { useConnectionModels } from "../ai-connections/useConnectionModels";
 import { AgentCharacter } from "../AgentCharacter";
@@ -81,6 +82,7 @@ const blocking = (result: AdapterEnvironmentTestResult) =>
 export function NewAgentSetup() {
   const { selectedCompanyId } = useCompany();
   const [params] = useSearchParams();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   if (!selectedCompanyId)
     return (
@@ -120,6 +122,7 @@ function Setup({
   preserveNativeHarness: boolean;
   createdAgentId: string | null;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const cache = useQueryClient();
   const { openNewIssue } = useDialogActions();
@@ -127,6 +130,7 @@ function Setup({
   const [runner, setRunner] = useState<AgentRunnerChoice>(initialRunner === "legacy" || initialRunner === "paperclip" ? initialRunner : "auto");
   const requestAdapterType = preserveNativeHarness && runner === "paperclip" ? "paperclip_runner" : adapterType;
   const isRunner = adapterType === "paperclip_runner";
+  const isAiSdk = adapterType === "ai_sdk";
   const isDot = isRunner && runnerProvider === "openai_dot";
   const brandType = isDot ? "openai_dot" : isRunner
     ? runnerProvider === "grok"
@@ -156,6 +160,7 @@ function Setup({
   const [screen, setScreen] = useState<"connect" | "runtime" | "saved">(
     createdAgentId ? "saved" : connectionAdapter ? "connect" : "runtime",
   );
+  const [sdkConnectionValid, setSdkConnectionValid] = useState(false);
   const [model, setModel] = useState("");
   const efforts = isRunner ? [] : setupEfforts(adapterType, model);
   const [effort, setEffort] = useState("");
@@ -173,7 +178,7 @@ function Setup({
   );
   const [connection, setConnection] = useState<ProviderConnection | null>(null);
   const aiBinding = runtimeAiBinding ?? connection?.aiConnection;
-  const connectionModels = useConnectionModels(companyId, aiBinding, brandType);
+  const connectionModels = useConnectionModels(isAiSdk ? null : companyId, aiBinding, brandType);
   const [repository, setRepository] = useState("");
   const [branch, setBranch] = useState("");
   const [createdInSession, setCreated] = useState<Agent | null>(null);
@@ -245,7 +250,7 @@ function Setup({
   const models = useQuery({
     queryKey: queryKeys.agents.adapterModels(companyId, brandType, null, aiBinding?.provider),
     queryFn: () => agentsApi.adapterModels(companyId, brandType, { provider: aiBinding?.provider }),
-    enabled: Boolean(brandType) && showModel && !connectionModels,
+    enabled: Boolean(brandType) && !isAiSdk && showModel && !connectionModels,
     retry: false,
   });
   const companySecrets = useQuery({
@@ -353,7 +358,9 @@ function Setup({
         !adapter.disabled &&
         !getAdapterDisplay(adapterType).comingSoon,
     ) && (requestAdapterType !== "paperclip_runner" || adapterType === "paperclip_runner" || adapterInventory.data?.some(adapter => adapter.type === "paperclip_runner" && adapter.loaded && !adapter.disabled));
+  const sdkEnvironmentSupported = !isAiSdk || (!managedOnly && !forced.forced && (!environment || environment.driver === "local"));
   const connectionSettingsReady = Boolean(
+    sdkEnvironmentSupported &&
     available &&
     (!["codex_local", "claude_local"].includes(adapterType) || runner !== "auto" || Boolean(adapters.data)) &&
     !environmentError &&
@@ -444,6 +451,8 @@ function Setup({
     return config;
   }
   function preparedConfig(nextConnection = connection, setupRunner?: AgentRunner) {
+    if (isAiSdk && (!sdkConnectionValid || !aiBinding || !["shared", "delegated"].includes(aiBinding.mode))) throw new Error(t("aiSdk.connectionRequired"));
+    if (isAiSdk && !model.trim()) throw new Error(t("aiSdk.modelRequired"));
     if (isDot && !allowUnmeteredProvider) throw new Error("Acknowledge external provider billing before creating your Dot agent.");
     if (multiProvider && (!model.trim() || !model.includes("/")))
       throw new Error("Choose or enter a model in provider/model format.");
@@ -555,7 +564,7 @@ function Setup({
     let hired = false;
     try {
       const credentials = pendingCredentials();
-      const config = (connectionAdapter && testState === "idle") || Object.keys(credentials).length
+      const config = ((connectionAdapter || isAiSdk) && testState === "idle") || Object.keys(credentials).length
         ? await runTest()
         : preparedConfig();
       if (!config) return;
@@ -672,9 +681,9 @@ function Setup({
     "saved" as const,
   ];
   const labels = {
-    connect: "Connect",
-    runtime: "Configure",
-    saved: "Confirmation",
+    connect: t("agentSetup.connect"),
+    runtime: t("agentSetup.configuration"),
+    saved: t("agentSetup.confirmation"),
   };
   const confirmationEnvironment = created?.defaultEnvironmentId
     ? envs.data?.find((env) => env.id === created.defaultEnvironmentId)
@@ -696,7 +705,7 @@ function Setup({
         ? "Hermes Gateway"
         : confirmationEnvironment
           ? environmentDisplayLabel(confirmationEnvironment)
-          : "Local machine";
+          : t("agentSetup.local");
   const setupError =
     adapters.error ??
     adapterInventory.error ??
@@ -729,6 +738,7 @@ function Setup({
             </div>
           </div>
         </header>
+        {isAiSdk && !sdkEnvironmentSupported && <p role="alert" className="text-sm text-destructive">{t(managedOnly || forced.forced ? "aiSdk.environmentUnavailable" : "aiSdk.remoteSelected")}</p>}
         {environmentError && !envs.isPending && (
           <p role="alert" className="text-sm text-destructive">
             {environmentError}
@@ -866,27 +876,27 @@ function Setup({
                       <h2 className="flex items-center gap-3 text-lg font-semibold">
                         <Check className="size-5" />
                         {created.status === "pending_approval"
-                          ? "Agent submitted for approval"
-                          : isDot ? "Your Dot agent has been created" : "Your agent is ready"}
+                          ? t("agentSetup.awaitingApproval")
+                          : isDot ? "Your Dot agent has been created" : t("agentSetup.ready")}
                       </h2>
                       <dl className="grid grid-cols-2 gap-4 text-sm">
-                        <dt className="text-muted-foreground">Adapter</dt>
+                        <dt className="text-muted-foreground">{t("agentSetup.adapter")}</dt>
                         <dd>{getAdapterDisplay(isDot ? "openai_dot" : adapterType).label}</dd>
                         {showModel && (
                           <>
-                            <dt className="text-muted-foreground">Model</dt>
+                            <dt className="text-muted-foreground">{t("aiSdk.model")}</dt>
                             <dd className="break-all">
                               {String(confirmationModel)}
                             </dd>
                           </>
                         )}
-                        <dt className="text-muted-foreground">Environment</dt>
+                        <dt className="text-muted-foreground">{t("agentSetup.environment")}</dt>
                         <dd>{environmentLabel}</dd>
                       </dl>
                       <p className="text-sm text-muted-foreground">
                         {created.status === "pending_approval"
-                          ? "An organization administrator must approve this agent before it can work."
-                          : isDot ? "Pair your Dot and test event delivery in configuration before assigning work." : "Assign a task when you’re ready for this agent to work."}
+                          ? t("agentSetup.approvalHint")
+                          : isDot ? "Pair your Dot and test event delivery in configuration before assigning work." : t("agentSetup.assignHint")}
                       </p>
                     </div>
                     <div className="flex flex-wrap justify-between gap-3">
@@ -895,7 +905,7 @@ function Setup({
                         onClick={() => navigate(isDot ? "/agents/all" : `${agentUrl(created)}/runtime`)}
                       >
                         <Settings2 className="size-4" />
-                        {isDot ? "Back to Agents" : "Edit configuration"}
+                        {isDot ? "Back to Agents" : t("agentSetup.edit")}
                       </Button>
                       <Button
                         disabled={created.status === "pending_approval"}
@@ -904,7 +914,7 @@ function Setup({
                           : openNewIssue({ assigneeAgentId: created.id, status: "todo" })
                         }
                       >
-                        {isDot ? "Pair Dot" : `Assign ${created.name} a Task`}
+                        {isDot ? "Pair Dot" : t("agentSetup.assign", { name: created.name })}
                         <ArrowRight className="size-4" />
                       </Button>
                     </div>
@@ -918,7 +928,7 @@ function Setup({
                     }}
                   >
                     <h2 className="text-xl font-semibold">
-                      Configure your agent
+                      {t("agentSetup.configure")}
                     </h2>
                     <fieldset disabled={busy} className="space-y-8">
                       <section className="space-y-5">
@@ -930,10 +940,14 @@ function Setup({
                         </>}
                         {!connectionAdapter && aiProviderForAdapter(brandType) && (
                           <AiConnectionField companyId={companyId} agentName={name} adapterType={brandType} model={model} environmentId={environmentId ?? undefined} value={aiBinding}
-                            onChange={binding => { binding.mode !== "router" && setRuntimeAiBinding(binding); resetTest(); }} />
+                            onChange={binding => { binding.mode !== "router" && setRuntimeAiBinding(binding); resetTest(); }}
+                            onClear={() => { setRuntimeAiBinding(undefined); setSdkConnectionValid(false); resetTest(); }}
+                            onModelChange={value => { setModel(value); resetTest(); }}
+                            onValidityChange={setSdkConnectionValid} />
                         )}
-                        {(connectionModels ? connectionModels.error : models.error) && <p role="alert" className="text-sm text-destructive">Could not load models. Retry or enter a model ID manually.</p>}
-                        {((showModel && !usingKimiApi) ||
+                        {isAiSdk && <><p className="text-sm text-muted-foreground">{t("aiSdk.capabilities")}</p><p className="text-sm text-muted-foreground">{t("aiSdk.localOnly")}</p></>}
+                        {(connectionModels ? connectionModels.error : models.error) && <p role="alert" className="text-sm text-destructive">{t("agentSetup.modelError")}</p>}
+                        {!isAiSdk && ((showModel && !usingKimiApi) ||
                           efforts.length > 0) && (
                           <div className="grid items-start gap-5 sm:grid-cols-2">
                             {showModel && !usingKimiApi && (
@@ -1215,9 +1229,9 @@ function Setup({
                         adapterType,
                       ) && (
                         <section className="space-y-5">
-                          <h3 className="text-sm font-semibold">Environment</h3>
+                          <h3 className="text-sm font-semibold">{t("agentSetup.environment")}</h3>
                           <select
-                            aria-label="Environment"
+                            aria-label={t("agentSetup.environment") }
                             className={controlClass}
                             value={environmentOverride}
                             disabled={forced.forced}
@@ -1232,7 +1246,7 @@ function Setup({
                               Default: {environmentLabel}
                             </option>
                             {(envs.data ?? [])
-                              .filter((env) => env.status === "active" && (!managedOnly || env.driver !== "local"))
+                              .filter((env) => env.status === "active" && (!managedOnly || env.driver !== "local") && (!isAiSdk || env.driver === "local"))
                               .map((env) => (
                                 <option key={env.id} value={env.id}>
                                   {environmentDisplayLabel(env)}
@@ -1247,7 +1261,7 @@ function Setup({
                       state={testState}
                       result={result}
                       error={error}
-                      disabled={!ready || busy || Boolean(connectionAdapter && !connection)}
+                      disabled={!ready || busy || Boolean(connectionAdapter && !connection) || Boolean(isAiSdk && !sdkConnectionValid)}
                       onTest={() => void runTest()}
                     />
                     {error && testState !== "fail" && (
@@ -1282,10 +1296,10 @@ function Setup({
                           !ready ||
                           busy ||
                           testState === "fail" ||
-                          Boolean(connectionAdapter && !connection)
+                          Boolean(connectionAdapter && !connection) || Boolean(isAiSdk && !sdkConnectionValid)
                         }
                       >
-                        {saving ? "Creating…" : "Finish setup"}
+                        {saving ? t("agentSetup.creating") : t("agentSetup.finish")}
                         <Check className="size-4" />
                       </Button>}
                     </div>

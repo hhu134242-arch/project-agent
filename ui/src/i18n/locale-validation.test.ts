@@ -12,9 +12,9 @@ describe("locale validation", () => {
   });
 
   it("accepts registered locale files", () => {
-    expect(Object.keys(localeMessages)).toContain("en");
+    expect(Object.keys(localeMessages)).toEqual(["en", "zh-CN"]);
     for (const [locale, messages] of Object.entries(localeMessages)) {
-      expect(validateLocaleMessages(messages), locale).toEqual([]);
+      expect(validateLocaleMessages(messages, localeMessages.en, locale), locale).toEqual([]);
     }
   });
 
@@ -92,6 +92,15 @@ describe("locale validation", () => {
         "html contains disallowed raw HTML tag",
       ]),
     );
+  });
+
+  it("validates plural coverage using the target language's cardinal rules", () => {
+    const reference = { tasks_one: "{{count}} task", tasks_other: "{{count}} tasks" };
+    expect(validateLocaleMessages({ tasks_other: "{{count}} 个任务" }, reference, "zh-CN")).toEqual([]);
+    expect(validateLocaleMessages({ tasks_other: "{{count}} tasks" }, reference, "en"))
+      .toContain("tasks_one is missing");
+    expect(validateLocaleMessages({ tasks_other: "任务" }, reference, "zh-CN"))
+      .toEqual([ 'tasks_other interpolation placeholders must match English exactly: expected ["count"], received []' ]);
   });
 
   it("caps localized string length relative to English", () => {

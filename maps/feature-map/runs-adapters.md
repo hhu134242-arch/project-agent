@@ -51,6 +51,22 @@ models/authentication and unsupported Legacy-only options must fail visibly.
 
 Manual: Select the intended adapter and account, refresh model choices, and run its environment test. Save, reload, then execute a small task. Repeat with a deliberately unavailable account and verify the failure remains visible.
 
+API model setup selects a platform (DeepSeek/OpenAI/Anthropic/OpenRouter/custom),
+a fixed authorized API-key account and exact model ID. Switching platform/account
+clears the previous model. Custom protocols use public HTTPS and DNS-pinned requests.
+Choose local execution explicitly when the instance default is remote; remote and
+low-trust sandbox work are unsupported and must fail before provider work. The
+connection form stores credentials in the existing vault. Run test makes a small
+billable model request; saving a connection alone does not establish access.
+Verify a task with the current-task API tools and assigned MCP tools, follow-up
+context, Stop during a stream/tool request, and provider errors. The adapter has
+no shell or arbitrary project-file tools. Unknown provider cost remains unpriced.
+Its controlled HTTP fixtures exercise the real SDK; they do not prove access to
+a platform's live service. Live qualification requires an operator-supplied key.
+The [managed heartbeat integration](../../server/src/__tests__/heartbeat-ai-sdk.test.ts)
+also checks encrypted credential preparation, persisted run results and operator
+Stop through the actual coordinator against a controlled upstream.
+
 Choose Codex as the harness; the UI displays its name/icon for both runners.
 Advanced identifies the automatic default and offers Paperclip Runner or Legacy.
 New Codex agents default to the native runner on supported macOS or GNU/Linux

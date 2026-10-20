@@ -68,6 +68,15 @@ V1 implementation extends this baseline into a company-centric, governance-aware
 
 ## 5.1 In Scope
 
+The optional `ai_sdk` execution adapter runs an API-backed model tool loop
+through the existing direct-adapter lifecycle. It requires explicit managed
+credentials, local standard-trust execution and the existing task/tool access
+checks. It reports usage and supports cancellation; shell/project-file access,
+remote isolation and durable mid-loop recovery are outside its first release.
+See [AI connections](connections/AI-CONNECTIONS.md#api-platforms-through-vercel-ai-sdk).
+The board supports personal browser-local English/Simplified Chinese switching;
+this presentation preference does not alter task content or agent instructions.
+
 Company administrators may opt in to native Codex and Claude Code logs/traces
 through [company agent observability](agent-observability.md), using a single
 company destination and encrypted credentials. This is separate from first-party

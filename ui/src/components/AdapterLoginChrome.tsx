@@ -47,6 +47,7 @@ export type AdapterLoginChrome = "panel" | "onboarding";
  * otherwise, this is the one to delete.
  */
 export const CONNECT_SOURCE_NAMES: Record<string, string> = {
+  ai_sdk: "API model",
   claude_local: "Claude",
   codex_local: "OpenAI",
   grok_local: "Grok",

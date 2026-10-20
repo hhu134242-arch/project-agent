@@ -100,6 +100,12 @@ and replacement confirmation. See the personal-primary addendum in
 
 Every employee is an agent. Agents are the workforce.
 
+API-backed agents may use Vercel AI SDK as their execution adapter. Provider and
+model selection belongs to adapter configuration; company/task authority,
+credential access, budgets, cancellation and audit remain control-plane
+responsibilities. The API adapter's supported tools, environments
+and continuity limits are defined in [the V1 implementation contract](SPEC-implementation.md).
+
 ### Cryptographic identity
 
 Agents have persistent Ed25519 identities, encrypted in their home instance.

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { i18n } from "@/i18n";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
@@ -377,6 +378,28 @@ describe("IssuesList", () => {
   afterEach(() => {
     vi.useRealTimers();
     container.remove();
+  });
+
+  it("updates task controls in Chinese without discarding a search draft or translating task content", async () => {
+    const { root, queryClient } = renderWithQueryClient(
+      <IssuesList issues={[createIssue({ title: "Original task content" })]} isLoading={false} agents={[]} projects={[]}
+        viewStateKey="paperclip:language-test" rowPresentation="task" toolbarPresentation="collection" onUpdateIssue={() => undefined} />,
+      container,
+    );
+    try {
+      await waitForAssertion(() => expect(container.querySelector('input[aria-label="Search tasks"]')).not.toBeNull());
+      const input = container.querySelector('input[aria-label="Search tasks"]') as HTMLInputElement;
+      await act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Original");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await act(async () => { await i18n.changeLanguage("zh-CN"); });
+      expect((container.querySelector('input[aria-label="搜索任务"]') as HTMLInputElement).value).toBe("Original");
+      expect(container.textContent).toContain("Original task content");
+      expect(container.querySelector('[aria-label="列表视图"]')).not.toBeNull();
+    } finally {
+      await act(async () => { await i18n.changeLanguage("en"); root.unmount(); }); queryClient.clear();
+    }
   });
 
   it("uses the master list and legacy persistence when Streamlined UI is off", async () => {

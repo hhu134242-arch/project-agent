@@ -14,6 +14,7 @@ Agent access: [companion](../agent-access-map/navigation-preferences.md).
 
 - `navigation`: use current sidebar links, favorites, recents, and available layout controls.
 - `preferences`: persist supported ordering/collapse choices for the intended user/company.
+- `language`: select English, Simplified Chinese, or browser language with browser-local account isolation.
 - `profile`: edit personal identity and inspect public profile links.
 - `announcements`: inspect and dismiss an announcement with its intended instance-wide user scope.
 - `fallbacks`: handle missing resources and old deep links without presenting another resource as the target.
@@ -27,6 +28,8 @@ Use starred/recent/sidebar links and direct company-prefixed URLs.
 ### `profile-announcements`
 
 Use Settings → Profile, `/u/:userSlug`, and the announcement well when a publication is available.
+
+Language is available in Profile, the account menu, and the unauthenticated/empty-company entry. Change language with an unsaved draft, navigate, reload, and open a second tab. Check translated labels and HTML `lang`, retained drafts, account isolation and unchanged currency/time-zone semantics. Only English and Simplified Chinese are published; user content and raw logs retain their original language. The preference stays in this browser and does not configure agent response language.
 
 ## Driving it with Playwright and the Paperclip CLI
 
@@ -46,6 +49,8 @@ ordering are saved server-side. Local-trusted mode does not prove two-user isola
 ### `profile-announcements`
 
 Automated: [profile page](../../ui/src/pages/ProfileSettings.test.tsx), [announcement hook](../../ui/src/hooks/useAnnouncement.test.tsx), and [announcement routes](../../server/src/__tests__/announcements-routes.test.ts) cover separate UI/persistence layers.
+
+Language controls use [real-resource switching tests](../../ui/src/i18n/language-switching.test.tsx) and [preference isolation tests](../../ui/src/i18n/preferences.test.ts). These are component evidence, separate from a live browser journey.
 
 Manual: Change a disposable user’s display details, reload, and inspect an attributed profile link. Dismiss a fixture announcement, switch companies, and verify it remains dismissed for that user; check another user still has their own dismissal state.
 

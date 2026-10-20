@@ -1,5 +1,38 @@
 # AI Connections
 
+## API platforms through Vercel AI SDK
+
+Choose **API model** when creating or editing an agent, then select **API platform → account → model**. Platforms are DeepSeek, OpenAI, Anthropic, OpenRouter and Custom compatible API. API-key accounts use the existing personal/shared grants and encrypted vault; subscriptions are not accepted by this adapter. Switching platform or account clears the previous model so the connection/model pair is saved together. Browser drafts retain identifiers, never credentials.
+
+DeepSeek includes maintained model suggestions and its fixed official endpoint. Other platforms use the saved connection's model catalog or an exact manually entered model ID; model names are never silently substituted. DeepSeek's product identity is separate from the legacy OpenAI wire-format enum and is accepted only for its verified official endpoint.
+
+The `ai_sdk` adapter uses Vercel AI SDK's native providers and `ToolLoopAgent` directly, without a Vercel deployment or hosted gateway. Native OpenAI uses Responses, Anthropic uses Messages, and OpenRouter uses Chat Completions. Custom connections support these three protocols at public HTTPS DNS endpoints. Local/private network endpoints and IP-literal URLs are not supported in this first version. The server validates and pins resolved addresses, rejects redirects, forwards cancellation and limits each decompressed response to 32 MiB. Creating a connection does not send a model request.
+
+Execution currently runs on the local Paperclip server with standard trust. Remote/SSH/sandbox selections and low-trust work fail before a model request. First-run setup, normal creation, and agent configuration offer the same platform/account/model selector. Run test performs a small billable request; saving a connection alone does not establish model access.
+
+Tasks can use current-task tools and an API request tool restricted to this
+instance's company/resource routes, plus server-assigned instruction/skill
+resources, and authorized run-scoped MCP connections. The adapter provides no
+shell or arbitrary project-file tools. Tool requests retain the existing company,
+responsible-user, grant and task authorization. Stop and timeout cancel model and
+tool requests and wait for owned work to settle. Model, credential identity,
+company, agent, task or workspace changes invalidate the previous conversation.
+Successful turns retain bounded messages; an interrupted process does not promise
+durable recovery of an in-flight tool loop or authorize replaying uncertain effects.
+
+Each model step reports token usage. Monetary cost remains `unpriced` when no
+trusted price is available; it is not assumed to be zero or priced as OpenAI.
+The implementation has controlled HTTP tests using the real SDK, plus a real
+database/managed-vault/heartbeat integration that verifies persisted results and
+operator cancellation without substituting the execution adapter. Live service
+access still requires the operator's platform key and a successful live test.
+
+Provider references: [DeepSeek API](https://api-docs.deepseek.com/),
+[AI SDK DeepSeek provider](https://ai-sdk.dev/providers/ai-sdk-providers/deepseek),
+[AI SDK agent loop](https://ai-sdk.dev/docs/agents/overview).
+The platform/account/model interaction follows the separation described in
+[DeepSeek Harness provider setup](https://deepseek-harness.github.io/deepseek-harness/guide/providers); Harness itself is not a dependency.
+
 AI accounts use the existing Apps/Connections substrate. Manage them at
 `/:company/apps`; select their use beside an agent's harness/model settings.
 Onboarding, new-agent setup, account creation/reconnect, and inline task requests

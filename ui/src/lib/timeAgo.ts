@@ -1,3 +1,5 @@
+import { getFormattingLocale, t } from "@/i18n";
+
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -8,6 +10,16 @@ export function timeAgo(date: Date | string): string {
   const now = Date.now();
   const then = new Date(date).getTime();
   const seconds = Math.round((now - then) / 1000);
+
+  if (getFormattingLocale() === "zh-CN") {
+    if (seconds < MINUTE) return t("format.justNow");
+    const format = new Intl.RelativeTimeFormat("zh-CN", { numeric: "always" });
+    if (seconds < HOUR) return format.format(-Math.floor(seconds / MINUTE), "minute");
+    if (seconds < DAY) return format.format(-Math.floor(seconds / HOUR), "hour");
+    if (seconds < WEEK) return format.format(-Math.floor(seconds / DAY), "day");
+    if (seconds < MONTH) return format.format(-Math.floor(seconds / WEEK), "week");
+    return format.format(-Math.floor(seconds / MONTH), "month");
+  }
 
   if (seconds < MINUTE) return "just now";
   if (seconds < HOUR) {

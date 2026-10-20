@@ -28,6 +28,7 @@ export type AgentStatus = (typeof AGENT_STATUSES)[number];
 export const AGENT_ADAPTER_TYPES = [
   "process",
   "http",
+  "ai_sdk",
   "claude_local",
   "codex_local",
   "paperclip_runner",

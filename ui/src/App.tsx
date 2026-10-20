@@ -1,3 +1,4 @@
+import { LanguageSelect } from "@/components/LanguageSelect";
 import { AgentChats } from "./pages/AgentChats";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import type { ToolConnectionCredentialSource } from "@paperclipai/shared";
@@ -583,19 +584,20 @@ export function OnboardingRoutePage() {
   }
 
   const title = matchedCompany
-    ? `Add another agent to ${matchedCompany.name}`
+    ? t("app.onboarding.addToCompany", { company: matchedCompany.name })
     : companies.length > 0
-      ? "Create another organization"
-      : "Create your first organization";
+      ? t("app.onboarding.anotherCompany")
+      : t("app.onboarding.firstCompany");
   const description = matchedCompany
-    ? "Run onboarding again to add an agent and a starter task for this organization."
+    ? t("app.onboarding.addDescription")
     : companies.length > 0
-      ? "Run onboarding again to create another organization and seed its first agent."
-      : "Get started by creating an organization and your first agent.";
+      ? t("app.onboarding.anotherDescription")
+      : t("app.onboarding.firstDescription");
 
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
+        <div className="mb-4 max-w-xs"><LanguageSelect compact /></div>
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
         <div className="mt-4">
@@ -629,7 +631,7 @@ export function OnboardingRoutePage() {
                     : openOnboarding()
               }
             >
-              {matchedCompany ? "Add Agent" : "Start Onboarding"}
+              {matchedCompany ? t("app.onboarding.addAgent") : t("app.onboarding.start")}
             </Button>
           )}
         </div>
@@ -723,6 +725,7 @@ function NoCompaniesStartPage() {
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
+        <div className="mb-4 max-w-xs"><LanguageSelect compact /></div>
         <h1 className="text-xl font-semibold">
           {t("app.noCompanies.title", { defaultValue: "Create your first organization" })}
         </h1>

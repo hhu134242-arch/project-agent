@@ -1,0 +1,21 @@
+{
+  "connections.access.humans": "哪些成员可以使用此凭据？",
+  "connections.access.agents": "哪些智能体可以使用此连接？",
+  "connections.access.justMe": "仅自己",
+  "connections.access.organization": "组织内的所有成员",
+  "connections.access.selectedAgents": "仅所选智能体",
+  "connections.access.anyAgent": "所有智能体",
+  "connections.access.noEditableAgents": "目前没有可配置的智能体。",
+  "connections.access.noSignIn": "无需登录",
+  "connections.access.asYou": "以你的身份连接",
+  "connections.access.asAgent": "使用智能体专属账户连接",
+  "connections.access.forOrganization": "为组织内的所有成员连接",
+  "connections.access.unchanged": "保持现有智能体访问权限",
+  "connections.access.requestingAgent": "仅向提出请求的智能体开放",
+  "connections.access.allAgents": "向所有智能体开放",
+  "connections.access.noneSelected": "尚未选择智能体",
+  "connections.access.selected_other": "向所选的 {{count}} 个智能体开放",
+  "connections.access.summary": "{{identity}}，{{reach}}。",
+  "connections.access.change": "更改",
+  "dialog.close": "关闭"
+}

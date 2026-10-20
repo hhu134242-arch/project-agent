@@ -1,0 +1,17 @@
+{
+  "platform.label": "API 平台",
+  "platform.deepseek": "DeepSeek",
+  "platform.openai": "OpenAI",
+  "platform.anthropic": "Anthropic",
+  "platform.openrouter": "OpenRouter",
+  "platform.gateway": "自定义兼容 API",
+  "platform.exactModelId": "输入准确的模型 ID",
+  "platform.remoteOnly": "请使用公共 HTTPS API 地址，暂不支持本地端点和订阅账户。",
+  "platform.officialEndpoint": "使用 API Key 直连 {{platform}} 官方服务。",
+  "platform.apiDescription": "使用 {{platform}} API Key 接入",
+  "platform.test": "测试",
+  "platform.save": "保存",
+  "platform.saving": "正在保存…",
+  "platform.unsaved": "有未保存的更改",
+  "platform.permissionNotice": "仅连接管理员可以向所有人共享凭据，或允许所有 Agent 使用。"
+}

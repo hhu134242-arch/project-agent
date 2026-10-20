@@ -1,3 +1,4 @@
+import { AiSdkConnectionField } from "./AiSdkConnectionField";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -30,6 +31,7 @@ export function aiProviderForAdapter(
 ): AiProvider | undefined {
   return (
     {
+      ai_sdk: "openai",
       claude_local: "anthropic",
       codex_local: "openai",
       opencode_local: "openrouter",
@@ -39,7 +41,11 @@ export function aiProviderForAdapter(
     } as Record<string, AiProvider>
   )[adapterType];
 }
-export function AiConnectionField({
+export function AiConnectionField(props: Parameters<typeof LegacyAiConnectionField>[0]) {
+  if (props.adapterType === "ai_sdk") return <AiSdkConnectionField {...props} />;
+  return <LegacyAiConnectionField {...props} />;
+}
+function LegacyAiConnectionField({
   companyId,
   agentId,
   agentName,
@@ -58,6 +64,9 @@ export function AiConnectionField({
   agentName: string;
   adapterType: string;
   model?: string;
+  onModelChange?: (model: string) => void;
+  onClear?: () => void;
+  onValidityChange?: (valid: boolean) => void;
   value?: AiRuntimeConnectionBinding;
   onChange: (binding: AiRuntimeConnectionBinding) => void;
   environmentId?: string;

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { aiProviderRoutingSchema, aiRoutingHarness, isAiRoutingCompatible, type AiProviderRouting } from "./ai-provider-routing.js";
+import { aiProviderRoutingSchema, aiRoutingHarness, isAiRoutingCompatible, isAiSdkRoutingCompatible, type AiProviderRouting } from "./ai-provider-routing.js";
+import { isDeepSeekRouting, type AiVendorPresetId } from "./ai-vendor-presets.js";
 
 /** Runtime authentication is a separate transport, never a tool or channel. */
 export const connectionPurposeTransportSchema = z.discriminatedUnion(
@@ -66,8 +67,20 @@ export const aiConnectionBindingSchema = z.discriminatedUnion("mode", [
     .strict(),
 ]);
 export type AiConnectionBinding = z.infer<typeof aiConnectionBindingSchema>;
-export const aiConnectionMetadataSchema = z.object({ ...requirement, routing: aiProviderRoutingSchema.optional() }).strict();
+const vendorPresetIdSchema = z.literal("deepseek").optional();
+const validVendorPreset = (value: { vendorPresetId?: AiVendorPresetId; provider: AiProvider; method: AiAuthMethod; routing?: AiProviderRouting }) =>
+  !value.vendorPresetId || (value.provider === "openai" && value.method === "api_key" && Boolean(value.routing && isDeepSeekRouting(value.routing)));
+export const aiConnectionMetadataSchema = z.object({ ...requirement, routing: aiProviderRoutingSchema.optional(), vendorPresetId: vendorPresetIdSchema }).strict()
+  .refine(validVendorPreset, { message: "DeepSeek requires its official API endpoint and API-key authentication", path: ["vendorPresetId"] });
 export type AiConnectionMetadata = z.infer<typeof aiConnectionMetadataSchema>;
+
+export function isAiSdkConnectionCompatible(metadata: AiConnectionMetadata): boolean {
+  if (metadata.method !== "api_key" || !validVendorPreset(metadata)) return false;
+  if (!metadata.routing) return ["openai", "anthropic", "openrouter"].includes(metadata.provider);
+  const route = metadata.routing;
+  const provider = route.kind === "openrouter" ? "openrouter" : route.protocol === "messages" ? "anthropic" : "openai";
+  return metadata.provider === provider && isAiSdkRoutingCompatible(route);
+}
 
 /** Existing integrations only. This table describes compatibility, never routing. */
 export const AI_CONNECTION_CAPABILITIES: Record<
@@ -119,6 +132,10 @@ export function isAiConnectionCompatible(
   acpxAgent?: unknown,
 ): boolean {
   adapterType = aiRoutingHarness(adapterType, runnerProvider, acpxAgent);
+  if (adapterType === "ai_sdk") {
+    if ("mode" in requirement) return requirement.mode !== "responsible_user" && ["openai", "anthropic", "openrouter"].includes(requirement.provider) && requirement.method === "api_key";
+    return isAiSdkConnectionCompatible(requirement);
+  }
   if ("routing" in requirement && requirement.routing) return requirement.method === "api_key" && isAiRoutingCompatible(requirement.routing, adapterType);
   // A fixed binding contains identity only. The service checks authoritative
   // connection metadata before resolving credentials or running the harness.
@@ -165,6 +182,7 @@ export interface AiManagedConnectionSummary {
   method: AiAuthMethod;
   name: string;
   routing?: AiProviderRouting;
+  vendorPresetId?: AiVendorPresetId;
   accountLabel?: string;
   ownership: "personal" | "shared";
   ownerUserId?: string;
@@ -186,6 +204,7 @@ export const createAiConnectionSchema = z
     name: z.string().trim().min(1).max(160),
     ownership: z.enum(["personal", "shared"]),
     routing: aiProviderRoutingSchema.optional(),
+    vendorPresetId: vendorPresetIdSchema,
     apiKey: z.string().trim().min(1).max(32768).optional(),
     loginSessionId: z.string().max(128).optional(),
     connectionId: z.string().uuid().optional(),
@@ -194,6 +213,7 @@ export const createAiConnectionSchema = z
   })
   .strict()
   .superRefine((v, ctx) => {
+    if (!validVendorPreset(v)) ctx.addIssue({ code: "custom", message: "DeepSeek requires its official API endpoint and API-key authentication", path: ["vendorPresetId"] });
     if (!AI_CONNECTION_CAPABILITIES[v.provider].methods[v.method])
       ctx.addIssue({ code: "custom", message: "Unsupported sign-in method" });
     if (v.routing && (v.method !== "api_key" || (v.routing.kind === "openrouter" && v.provider !== "openrouter") || (v.routing.kind === "bedrock" && v.provider !== "anthropic")))
