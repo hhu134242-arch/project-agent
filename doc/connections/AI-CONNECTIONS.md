@@ -2,9 +2,27 @@
 
 ## API platforms through Vercel AI SDK
 
-Choose **API model** when creating or editing an agent, then select **API platform → account → model**. Platforms are DeepSeek, OpenAI, Anthropic, OpenRouter and Custom compatible API. API-key accounts use the existing personal/shared grants and encrypted vault; subscriptions are not accepted by this adapter. Switching platform or account clears the previous model so the connection/model pair is saved together. Browser drafts retain identifiers, never credentials.
+Choose **API model** when creating or editing an agent, then select **API platform → account → model**. Platforms include maintained gateway presets (DeepSeek and domestic OpenAI-compatible providers below), plus OpenAI, Anthropic, OpenRouter, and custom compatible API. API-key accounts use the existing personal/shared grants and encrypted vault; subscriptions are not accepted by this adapter. Switching platform or account clears the previous model so the connection/model pair is saved together. Browser drafts retain identifiers, never credentials.
 
-DeepSeek includes maintained model suggestions and its fixed official endpoint. Other platforms use the saved connection's model catalog or an exact manually entered model ID; model names are never silently substituted. DeepSeek's product identity is separate from the legacy OpenAI wire-format enum and is accepted only for its verified official endpoint.
+Gateway presets ship a fixed official HTTPS base URL, Bearer API-key routing, and a static model table (`packages/shared/src/ai-vendor-presets.ts` plus matching Apps catalog entries). Each preset’s product identity is separate from the legacy OpenAI wire-format enum and is accepted only when the saved routing matches that vendor’s verified endpoint. OpenAI-native and custom gateway accounts still use the saved connection’s model catalog or an exact manually entered model ID; model names are never silently substituted.
+
+### Domestic gateway presets (OpenAI-compatible)
+
+| Platform | Official OpenAI-compatible base URL | Docs |
+| --- | --- | --- |
+| Qwen (DashScope) | `https://dashscope.aliyuncs.com/compatible-mode/v1` | [Alibaba Model Studio OpenAI compatibility](https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope) |
+| Moonshot (Kimi) | `https://api.moonshot.cn/v1` | [Kimi API quickstart](https://platform.moonshot.cn/docs/api/quickstart) |
+| Zhipu GLM | `https://open.bigmodel.cn/api/paas/v4` | [Zhipu OpenAI compatibility](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction) |
+| Doubao (Volcengine Ark) | `https://ark.cn-beijing.volces.com/api/v3` | [Ark OpenAI SDK compatibility](https://www.volcengine.com/docs/82379/1330310) |
+| SiliconFlow | `https://api.siliconflow.cn/v1` | [SiliconFlow quickstart](https://docs.siliconflow.cn/cn/userguide/quickstart) |
+| MiniMax | `https://api.minimax.cn/v1` | [MiniMax OpenAI SDK](https://platform.minimaxi.com/docs/api-reference/text-openai-api) |
+| Baichuan | `https://api.baichuan-ai.com/v1` | [Baichuan API](https://platform.baichuan-ai.com/docs-v2/api) |
+| StepFun | `https://api.stepfun.com/v1` | [StepFun OpenAI migration guide](https://platform.stepfun.com/docs/zh/guides/developer/openai) |
+| 01.AI (Yi) | `https://api.lingyiwanwu.com/v1` | [Lingyiwanwu platform docs](https://platform.lingyiwanwu.com/docs) |
+| Tencent Hunyuan | `https://api.hunyuan.cloud.tencent.com/v1` | [Hunyuan OpenAI compatibility](https://cloud.tencent.com/document/product/1729/111007) |
+| Baidu Qianfan | `https://qianfan.baidubce.com/v2` | [Qianfan OpenAI SDK compatibility](https://cloud.baidu.com/doc/qianfan/s/Hmh4suq26) |
+| iFlytek Spark | `https://spark-api-open.xf-yun.com/v1` | [Spark HTTP API](https://www.xfyun.cn/doc/spark/HTTP%E8%B0%83%E7%94%A8%E6%96%87%E6%A1%A3.html) |
+| DeepSeek | `https://api.deepseek.com` | [DeepSeek API](https://api-docs.deepseek.com/) |
 
 The `ai_sdk` adapter uses Vercel AI SDK's native providers and `ToolLoopAgent` directly, without a Vercel deployment or hosted gateway. Native OpenAI uses Responses, Anthropic uses Messages, and OpenRouter uses Chat Completions. Custom connections support these three protocols at public HTTPS DNS endpoints. Local/private network endpoints and IP-literal URLs are not supported in this first version. The server validates and pins resolved addresses, rejects redirects, forwards cancellation and limits each decompressed response to 32 MiB. Creating a connection does not send a model request.
 

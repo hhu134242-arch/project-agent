@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "slug": "spark",
+  "name": "iFlytek Spark",
+  "description": "iFlytek Spark cognitive models via the OpenAI-compatible HTTP API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/spark.svg"
+  },
+  "urlPatterns": [
+    "https://spark-api-open.xf-yun.com/*"
+  ],
+  "docsUrl": "https://www.xfyun.cn/doc/spark/HTTP%E8%B0%83%E7%94%A8%E6%96%87%E6%A1%A3.html",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "iFlytek Spark API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "spark",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://spark-api-open.xf-yun.com/v1",
+          "models": [
+            {
+              "id": "4.0Ultra",
+              "label": "Spark 4.0 Ultra"
+            },
+            {
+              "id": "generalv3.5",
+              "label": "Spark Max (generalv3.5)"
+            },
+            {
+              "id": "max-32k",
+              "label": "Spark Max 32K"
+            },
+            {
+              "id": "lite",
+              "label": "Spark Lite"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized iFlytek Spark account.",
+      "guidanceMd": "Create an HTTP APIPassword for your Spark version in the iFlytek console. Use Bearer authentication with the OpenAI-compatible endpoint.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter Spark APIPassword",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://console.xfyun.cn/services/cbm",
+        "docs": "https://www.xfyun.cn/doc/spark/HTTP%E8%B0%83%E7%94%A8%E6%96%87%E6%A1%A3.html"
+      }
+    }
+  ]
+}

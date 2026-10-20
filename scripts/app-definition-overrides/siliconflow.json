@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "slug": "siliconflow",
+  "name": "SiliconFlow",
+  "description": "SiliconFlow hosted models via the OpenAI-compatible API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/siliconflow.svg"
+  },
+  "urlPatterns": [
+    "https://api.siliconflow.cn/*"
+  ],
+  "docsUrl": "https://docs.siliconflow.cn/cn/userguide/quickstart",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "SiliconFlow API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "siliconflow",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.siliconflow.cn/v1",
+          "models": [
+            {
+              "id": "deepseek-ai/DeepSeek-V3.2",
+              "label": "DeepSeek V3.2"
+            },
+            {
+              "id": "Qwen/Qwen3.5-122B-A10B",
+              "label": "Qwen3.5 122B A10B"
+            },
+            {
+              "id": "moonshotai/Kimi-K2-Instruct",
+              "label": "Kimi K2 Instruct"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized SiliconFlow account.",
+      "guidanceMd": "Create an API key on SiliconFlow. Copy the full model name from the model marketplace (provider/model format).",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter SiliconFlow API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://cloud.siliconflow.cn/account/ak",
+        "docs": "https://docs.siliconflow.cn/cn/userguide/quickstart"
+      }
+    }
+  ]
+}

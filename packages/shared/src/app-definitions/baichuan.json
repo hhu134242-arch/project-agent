@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "slug": "baichuan",
+  "name": "Baichuan",
+  "description": "Baichuan models via the OpenAI-compatible chat API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/baichuan.svg"
+  },
+  "urlPatterns": [
+    "https://api.baichuan-ai.com/*"
+  ],
+  "docsUrl": "https://platform.baichuan-ai.com/docs-v2/api",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "Baichuan API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "baichuan",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://api.baichuan-ai.com/v1",
+          "models": [
+            {
+              "id": "Baichuan4-Turbo",
+              "label": "Baichuan4 Turbo"
+            },
+            {
+              "id": "Baichuan4-Air",
+              "label": "Baichuan4 Air"
+            },
+            {
+              "id": "Baichuan4",
+              "label": "Baichuan4"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized Baichuan account.",
+      "guidanceMd": "Register on the Baichuan platform, create an API key, and use the documented chat completions model names.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter Baichuan API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://platform.baichuan-ai.com/console/apikey",
+        "docs": "https://platform.baichuan-ai.com/docs-v2/api"
+      }
+    }
+  ]
+}

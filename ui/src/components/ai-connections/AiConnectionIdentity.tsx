@@ -1,6 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { Building2, UserRound } from "lucide-react";
 import { AppLogo } from "@/pages/apps/AppLogo";
+import { AI_VENDOR_PRESETS, isAiVendorPresetId } from "@paperclipai/shared";
 import {
   AI_PROVIDERS,
   aiMethodLabel,
@@ -13,7 +14,10 @@ export function AiConnectionIdentity({
   connection: AiConnectionSummary;
 }) {
   const { t } = useTranslation();
-  const provider = connection.vendorPresetId === "deepseek" ? { name: "DeepSeek", logo: undefined } : AI_PROVIDERS[connection.provider];
+  const preset = connection.vendorPresetId && isAiVendorPresetId(connection.vendorPresetId)
+    ? AI_VENDOR_PRESETS[connection.vendorPresetId]
+    : undefined;
+  const provider = preset ? { name: preset.name, logo: undefined } : AI_PROVIDERS[connection.provider];
   const Icon = connection.ownership === "shared" ? Building2 : UserRound;
   return (
     <div className="flex min-w-0 items-start gap-3">

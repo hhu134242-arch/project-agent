@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "slug": "qianfan",
+  "name": "Baidu Qianfan",
+  "description": "Baidu Qianfan ERNIE models via the OpenAI-compatible v2 API.",
+  "categories": [
+    "ai"
+  ],
+  "tags": [
+    "model-provider"
+  ],
+  "branding": {
+    "logoUrl": "/brands/apps/qianfan.svg"
+  },
+  "urlPatterns": [
+    "https://qianfan.baidubce.com/*"
+  ],
+  "docsUrl": "https://cloud.baidu.com/doc/qianfan/s/Hmh4suq26",
+  "methods": [
+    {
+      "key": "ai-api_key",
+      "label": "Baidu Qianfan API key",
+      "purpose": "ai",
+      "transport": "runtime_auth",
+      "auth": "api_key",
+      "ai": {
+        "provider": "openai",
+        "method": "api_key",
+        "vendorPresetId": "qianfan",
+        "routing": {
+          "kind": "gateway",
+          "protocol": "chat",
+          "auth": "bearer",
+          "baseUrl": "https://qianfan.baidubce.com/v2",
+          "models": [
+            {
+              "id": "ernie-4.0-turbo-8k",
+              "label": "ERNIE 4.0 Turbo 8K"
+            },
+            {
+              "id": "ernie-4.0-8k",
+              "label": "ERNIE 4.0 8K"
+            },
+            {
+              "id": "ernie-3.5-8k",
+              "label": "ERNIE 3.5 8K"
+            }
+          ]
+        }
+      },
+      "grantKinds": [
+        "user",
+        "organization"
+      ],
+      "ownershipModes": [
+        "customer"
+      ],
+      "whenToUse": "Run an AI SDK agent using your authorized Baidu Qianfan account.",
+      "guidanceMd": "Create a Qianfan API key (Bearer bce-v3/… token). Optional appid headers are not required for basic chat calls.",
+      "riskTier": "S3",
+      "credentialFields": [
+        {
+          "key": "apiKey",
+          "label": "API key",
+          "type": "password",
+          "required": true,
+          "placeholder": "Enter Qianfan API key",
+          "secret": true
+        }
+      ],
+      "keyPlacement": {
+        "location": "env",
+        "name": "PAPERCLIP_AI_PROVIDER_KEY"
+      },
+      "consoleLinks": {
+        "keys": "https://console.bce.baidu.com/iam/#/iam/apikey/list",
+        "docs": "https://cloud.baidu.com/doc/qianfan/s/Hmh4suq26"
+      }
+    }
+  ]
+}

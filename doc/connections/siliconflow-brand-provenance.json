@@ -1,0 +1,8 @@
+{
+  "reviewedAt": "2026-10-20",
+  "asset": "ui/public/brands/apps/siliconflow.svg",
+  "sourceUrl": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/siliconcloud-color.svg",
+  "sha256": "a02d8d7ccb81739fbc720e2e5daaf149013dd5088605dc2dce1b71df0784d424",
+  "license": "ui/public/brands/apps/LOBE-LICENSE",
+  "notes": "Original Lobe Icons siliconcloud artwork mapped to the siliconflow vendor preset."
+}

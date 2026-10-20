@@ -1,0 +1,8 @@
+{
+  "reviewedAt": "2026-10-20",
+  "asset": "ui/public/brands/apps/stepfun.svg",
+  "sourceUrl": "https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/stepfun-color.svg",
+  "sha256": "f55afc0e6004c8854f76bd5bbcc0fce9fc0ed9316691d54fb02d088c24fab40d",
+  "license": "ui/public/brands/apps/LOBE-LICENSE",
+  "notes": "Original Lobe Icons artwork, copied without modification. Structural safety checked by check-app-brand-assets."
+}

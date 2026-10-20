@@ -22,7 +22,7 @@
   "aiSdk.maxStepsHint": "Maximum model/tool iterations per execution (1–50).",
   "aiSdk.providerDescription": "DeepSeek models with your API key",
   "aiSdk.endpoint": "Official API endpoint",
-  "aiSdk.getKey": "Get a DeepSeek API key",
+  "aiSdk.getKey": "Get an API key",
   "provider.connectTitle": "Connect a model provider",
   "provider.connectName": "Connect {{name}}",
   "provider.reconnectName": "Reconnect {{name}}",

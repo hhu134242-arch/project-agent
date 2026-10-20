@@ -688,6 +688,90 @@
       "provider": "DeepSeek",
       "catalogVisible": true,
       "localAsset": "/brands/apps/deepseek.svg"
+    },
+    {
+      "slug": "qwen",
+      "provider": "Qwen",
+      "aliases": ["DashScope", "Tongyi Qianwen"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/qwen.svg"
+    },
+    {
+      "slug": "moonshot",
+      "provider": "Moonshot AI",
+      "aliases": ["Kimi"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/moonshot.svg"
+    },
+    {
+      "slug": "zhipu",
+      "provider": "Zhipu AI",
+      "aliases": ["GLM", "BigModel"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/zhipu.svg"
+    },
+    {
+      "slug": "doubao",
+      "provider": "Doubao",
+      "aliases": ["Volcengine Ark", "Volcengine"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/doubao.svg"
+    },
+    {
+      "slug": "siliconflow",
+      "provider": "SiliconFlow",
+      "aliases": ["Silicon Cloud"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/siliconflow.svg"
+    },
+    {
+      "slug": "minimax",
+      "provider": "MiniMax",
+      "aliases": ["MiniMax AI"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/minimax.svg"
+    },
+    {
+      "slug": "baichuan",
+      "provider": "Baichuan",
+      "aliases": ["Baichuan AI"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/baichuan.svg"
+    },
+    {
+      "slug": "stepfun",
+      "provider": "StepFun",
+      "aliases": ["StepFun AI"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/stepfun.svg"
+    },
+    {
+      "slug": "lingyiwanwu",
+      "provider": "01.AI",
+      "aliases": ["Yi", "Lingyiwanwu", "01.AI"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/lingyiwanwu.svg"
+    },
+    {
+      "slug": "hunyuan",
+      "provider": "Tencent Hunyuan",
+      "aliases": ["Hunyuan", "Tencent Cloud"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/hunyuan.svg"
+    },
+    {
+      "slug": "qianfan",
+      "provider": "Baidu Qianfan",
+      "aliases": ["ERNIE", "Wenxin", "Baidu Cloud"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/qianfan.svg"
+    },
+    {
+      "slug": "spark",
+      "provider": "iFlytek Spark",
+      "aliases": ["Spark", "XFYun", "iFlytek"],
+      "catalogVisible": true,
+      "localAsset": "/brands/apps/spark.svg"
     }
   ]
 }
